@@ -9,6 +9,15 @@ VEC_IMPLEMENT(VVkLayerProperties, vVkLayerProperties, VkLayerProperties, BY_VAL,
 
 #include <cglm/cglm.h>
 
+static VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback( /*{{{*/
+        VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
+        VkDebugUtilsMessageTypeFlagsEXT messageType,
+        const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
+        void* pUserData) {
+    println("validation layer: %s", pCallbackData->pMessage);
+    return VK_FALSE;
+} /*}}}*/
+
 int app_init_window(App *app) { /*{{{*/
     assert_arg(app);
     glfwInit();
@@ -19,7 +28,7 @@ int app_init_window(App *app) { /*{{{*/
     return (!app->window);
 } /*}}}*/
 
-bool app_init_check_validation_support(App *app) {
+bool app_init_check_validation_support(App *app) { /*{{{*/
     uint32_t layer_count;
     vkEnumerateInstanceLayerProperties(&layer_count, 0);
     VVkLayerProperties available_layers = {0};
@@ -42,9 +51,9 @@ bool app_init_check_validation_support(App *app) {
 error:
     vVkLayerProperties_free(&available_layers);
     return false;
-}
+} /*}}}*/
 
-int get_required_extensions(App *app, VCs *required_extensions) {
+int get_required_extensions(App *app, VCs *required_extensions) { /*{{{*/
     vcs_clear(required_extensions);
     uint32_t glfw_extension_count = 0;
     const char **glfw_extensions = glfwGetRequiredInstanceExtensions(&glfw_extension_count);
@@ -59,8 +68,7 @@ int get_required_extensions(App *app, VCs *required_extensions) {
     return 0;
 error:
     return -1;
-}
-
+} /*}}}*/
 
 int app_init_vulkan_create_instance(App *app) { /*{{{*/
     assert_arg(app);
@@ -104,10 +112,52 @@ error:
     return -1;
 } /*}}}*/
 
+VkResult CreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT *pCreateInfo, const VkAllocationCallbacks* pAllocator, VkDebugUtilsMessengerEXT* pDebugMessenger) {
+    PFN_vkCreateDebugUtilsMessengerEXT func = (PFN_vkCreateDebugUtilsMessengerEXT)
+        vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT");
+    if(!func) THROW("could not find function");
+    return func(instance, pCreateInfo, pAllocator, pDebugMessenger);
+error:
+    return -1;
+}
+
+VkResult DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT debugMessenger, const VkAllocationCallbacks *pAllocator) {
+    PFN_vkDestroyDebugUtilsMessengerEXT func = (PFN_vkDestroyDebugUtilsMessengerEXT )
+        vkGetInstanceProcAddr(instance, "vkDestroyDebugUtilsMessengerEXT");
+    if(!func) THROW("could not find function");
+    func(instance, debugMessenger, pAllocator);
+    return 0;
+error:
+    return -1;
+}
+
+int app_init_vulkan_setup_debug_messenger(App *app) {
+    assert_arg(app);
+    println(">>> setting up debug messenger");
+    if(!app->validation.enable) return 0;
+    VkDebugUtilsMessengerCreateInfoEXT create_info = {0};
+    create_info.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
+    create_info.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT | 
+        VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT |
+        VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
+    create_info.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT |
+        VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
+        VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
+    create_info.pfnUserCallback = debug_callback;
+    create_info.pUserData = 0; // optional
+    /* call extension function */
+    try(CreateDebugUtilsMessengerEXT(app->instance, &create_info, 0, &app->debug_messenger));
+    println(">>> successfully set up debug messenger");
+    return 0;
+error:
+    return -1;
+}
+
 int app_init_vulkan(App *app) { /*{{{*/
     assert_arg(app);
     println(">>> initialize vulkan");
     try(app_init_vulkan_create_instance(app));
+    try(app_init_vulkan_setup_debug_messenger(app));
     return 0;
 error:
     return -1;
@@ -126,6 +176,9 @@ error:
 
 int app_free(App *app) { /*{{{*/
     assert_arg(app);
+    if(app->validation.enable) {
+        DestroyDebugUtilsMessengerEXT(app->instance, app->debug_messenger, 0);
+    }
     vkDestroyInstance(app->instance, 0);
     vcs_free(&app->required_extensions);
     glfwDestroyWindow(app->window);
