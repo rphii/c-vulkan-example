@@ -21,12 +21,13 @@ typedef struct App {
     const char *name;   // window name
     const char *engine; // engine name
     GLFWwindow *window;
-    VkInstance instance;
     VCs required_extensions;
     struct {
         VCs layers;
         bool enable;
     } validation;
+    VkInstance instance;
+    VkDebugUtilsMessengerEXT debug_messenger;
 } App;
 
 int app_init(App *app);
