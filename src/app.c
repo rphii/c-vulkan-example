@@ -18,6 +18,21 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback( /*{{{*/
     return VK_FALSE;
 } /*}}}*/
 
+void populate_debug_messenger_create_info(VkDebugUtilsMessengerCreateInfoEXT *create_info) {
+    assert_arg(create_info);
+    memset(create_info, 0, sizeof(*create_info));
+    create_info->sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
+    create_info->messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT | 
+        VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT |
+        VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
+    create_info->messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT |
+        VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
+        VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
+    create_info->pfnUserCallback = debug_callback;
+    create_info->pUserData = 0; // optional
+}
+
+
 int app_init_window(App *app) { /*{{{*/
     assert_arg(app);
     glfwInit();
@@ -90,6 +105,7 @@ int app_init_vulkan_create_instance(App *app) { /*{{{*/
     app_info.apiVersion = VK_API_VERSION_1_0;
 
     println(">>> initialize vulkan > set create info");
+    VkDebugUtilsMessengerCreateInfoEXT debug_create_info = {0};
     VkInstanceCreateInfo create_info = {0};
     create_info.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
     create_info.flags |= VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR;
@@ -97,12 +113,14 @@ int app_init_vulkan_create_instance(App *app) { /*{{{*/
     create_info.enabledExtensionCount = vcs_length(app->required_extensions);
     create_info.ppEnabledExtensionNames = vcs_iter_begin(app->required_extensions);
     if(app->validation.enable) {
+        populate_debug_messenger_create_info(&debug_create_info);
         println(">>> enable %zu validation layers", vcs_length(app->validation.layers));
-        println(">>> first one %s", vcs_get_front(&app->validation.layers));
         create_info.enabledLayerCount = vcs_length(app->validation.layers);
         create_info.ppEnabledLayerNames = vcs_iter_begin(app->validation.layers);
+        create_info.pNext = (VkDebugUtilsMessengerCreateInfoEXT *)&debug_create_info;
     } else {
         create_info.enabledLayerCount = 0;
+        create_info.pNext = 0;
     }
     try(vkCreateInstance(&create_info, 0, &app->instance));
 
@@ -136,15 +154,7 @@ int app_init_vulkan_setup_debug_messenger(App *app) {
     println(">>> setting up debug messenger");
     if(!app->validation.enable) return 0;
     VkDebugUtilsMessengerCreateInfoEXT create_info = {0};
-    create_info.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
-    create_info.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT | 
-        VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT |
-        VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
-    create_info.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT |
-        VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
-        VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
-    create_info.pfnUserCallback = debug_callback;
-    create_info.pUserData = 0; // optional
+    populate_debug_messenger_create_info(&create_info);
     /* call extension function */
     try(CreateDebugUtilsMessengerEXT(app->instance, &create_info, 0, &app->debug_messenger));
     println(">>> successfully set up debug messenger");
@@ -179,7 +189,9 @@ int app_free(App *app) { /*{{{*/
     if(app->validation.enable) {
         DestroyDebugUtilsMessengerEXT(app->instance, app->debug_messenger, 0);
     }
-    vkDestroyInstance(app->instance, 0);
+    if(app->instance) {
+        vkDestroyInstance(app->instance, 0);
+    }
     vcs_free(&app->required_extensions);
     glfwDestroyWindow(app->window);
     glfwTerminate();
