@@ -1,0 +1,8 @@
+*.objdump*
+*.o
+*.d
+*.vim
+*.ninja_log
+src/build
+src/c-vulkan
+

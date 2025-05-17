@@ -1,0 +1,24 @@
+root = .
+bdir = build
+
+cc = gcc
+optimize = -O2 -march=native 
+#-DNDEBUG -flto -ffat-lto-objects
+common = -fsanitize=address -ggdb3 -rdynamic
+
+cflags = -Wall -Wextra -Wimplicit -Wfatal-errors $
+         -Wno-unused-parameter $
+         $optimize $common
+ldflags = -lglfw -lvulkan -lrphiic $common
+
+rule cc
+    command = $cc -MMD -MF $out.d $cflags -c $in -o $out # -MT $out
+    depfile = $out.d
+
+rule link
+    command = $cc $ldflags -o $out $in
+
+build $bdir/main.o: cc $root/main.c
+build $bdir/app.o: cc $root/app.c
+build c-vulkan: link $bdir/main.o $bdir/app.o
+
