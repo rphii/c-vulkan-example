@@ -22,6 +22,7 @@ VEC_INCLUDE(VCs, vcs, const char *, BY_VAL, ERR);
 #include "v/VVkPhysicalDevice.h"
 #include "v/VVkQueueFamilyProperties.h"
 #include "v/VVkDeviceQueueCreateInfo.h"
+#include "v/VVkExtensionProperties.h"
 
 #include "queue_family.h"
 #include "log.h"
@@ -32,8 +33,9 @@ typedef struct App {
     Log log;
     GLFWwindow *window;
     VCs required_extensions;
+    const RVCs device_extensions;
     struct {
-        RVCs layers;
+        const RVCs layers;
         bool enable;
         VkDebugUtilsMessengerEXT messenger;
     } validation;

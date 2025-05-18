@@ -13,9 +13,12 @@ int main() {
 #else
         .validation.enable = true,
         .validation.layers = RVCS(
-            "VK_LAYER_KHRONOS_validation",
-            ),
+                "VK_LAYER_KHRONOS_validation",
+                ),
 #endif
+        .device_extensions = RVCS(
+                VK_KHR_SWAPCHAIN_EXTENSION_NAME,
+                ),
     };
 
     try(app_init(&app));
