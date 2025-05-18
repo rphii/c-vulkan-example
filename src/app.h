@@ -19,11 +19,12 @@ VEC_INCLUDE(VCs, vcs, const char *, BY_VAL, ERR);
 #include "v/VVkQueueFamilyProperties.h"
 
 #include "queue_family.h"
+#include "log.h"
 
 typedef struct App {
     const char *name;   // window name
     const char *engine; // engine name
-    int level;
+    Log log;
     GLFWwindow *window;
     VCs required_extensions;
     struct {

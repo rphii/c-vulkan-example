@@ -2,7 +2,7 @@ root = .
 bdir = build
 
 cc = gcc
-optimize = -O2 -march=native -flto -ffat-lto-objects
+optimize = -O2 -march=native -flto -ffat-lto-objects -DNDEBUG
 #-DNDEBUG -flto -ffat-lto-objects
 common = 
 #-fsanitize=address -ggdb3 -rdynamic
@@ -23,12 +23,13 @@ build $bdir/main.o: cc $root/main.c
 build $bdir/app.o: cc $root/app.c
 build $bdir/queue_family.o: cc $root/queue_family.c
 build $bdir/optional.o: cc $root/optional.c
+build $bdir/log.o: cc $root/log.c
 
 build $bdir/v/VVkLayerProperties.o: cc $root/v/VVkLayerProperties.c
 build $bdir/v/VVkPhysicalDevice.o: cc $root/v/VVkPhysicalDevice.c
 build $bdir/v/VVkQueueFamilyProperties.o: cc $root/v/VVkQueueFamilyProperties.c
 
-build c-vulkan: link $bdir/main.o $bdir/app.o $bdir/queue_family.o $bdir/optional.o $
+build c-vulkan: link $bdir/main.o $bdir/app.o $bdir/queue_family.o $bdir/optional.o $bdir/log.o $
     $bdir/v/VVkLayerProperties.o $bdir/v/VVkPhysicalDevice.o $bdir/v/VVkQueueFamilyProperties.o
 
 

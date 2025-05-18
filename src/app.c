@@ -7,20 +7,6 @@ VEC_IMPLEMENT(VCs, vcs, const char *, BY_VAL, ERR);
 
 #include <cglm/cglm.h>
 
-#define level_down(app, msg, ...)   do { \
-        app->level += 2; \
-        println("%*s" F(">", FG_BL_B) " " msg, (app)->level, "", ##__VA_ARGS__); \
-    } while(0)
-
-void level_up(App *app) {
-    app->level -= 2;
-}
-#define level_log(app, msg, ...)    \
-    println("%*s" F("-", FG_BL_B) " " msg, (app)->level, "", ##__VA_ARGS__)
-
-#define level_ok(app, msg, ...)    \
-    println("%*s" F("*", FG_GN_B BOLD) " " msg, (app)->level, "", ##__VA_ARGS__)
-
 static VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback( /*{{{*/
         VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
         VkDebugUtilsMessageTypeFlagsEXT messageType,
@@ -46,18 +32,18 @@ void populate_debug_messenger_create_info(VkDebugUtilsMessengerCreateInfoEXT *cr
 
 int app_init_window(App *app) { /*{{{*/
     assert_arg(app);
-    level_log(app, "initialize glfw");
+    log_info(&app->log, "initialize glfw");
     glfwInit();
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
     glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
     app->window = glfwCreateWindow(APP_WIDTH, APP_HEIGHT, app->name, 0, 0);
-    level_ok(app, "initialized glfw");
+    log_ok(&app->log, "initialized glfw");
     return (!app->window);
 } /*}}}*/
 
 bool app_init_check_validation_support(App *app) { /*{{{*/
     assert_arg(app);
-    level_down(app, "check validataion layer support");
+    log_down(&app->log, "check validataion layer support");
     uint32_t layer_count;
     vkEnumerateInstanceLayerProperties(&layer_count, 0);
     VVkLayerProperties available_layers = {0};
@@ -73,15 +59,15 @@ bool app_init_check_validation_support(App *app) { /*{{{*/
             break;
         }
         if(!layer_found) return false;
-        level_log(app, "found %s", layer_name);
+        log_info(&app->log, "found %s", layer_name);
     }
     vVkLayerProperties_free(&available_layers);
-    level_ok(app, "validataion layer supported");
-    level_up(app);
+    log_ok(&app->log, "validataion layer supported");
+    log_up(&app->log);
     return true;
 error:
     vVkLayerProperties_free(&available_layers);
-    level_up(app);
+    log_up(&app->log);
     return false;
 } /*}}}*/
 
@@ -104,14 +90,14 @@ error:
 
 int app_init_vulkan_create_instance(App *app) { /*{{{*/
     assert_arg(app);
-    level_down(app, "create instance");
+    log_down(&app->log, "create instance");
 
     if(app->validation.enable && !app_init_check_validation_support(app)) {
         THROW("validation layers requested, but not available!");
     }
     try(get_required_extensions(app, &app->required_extensions));
 
-    level_log(app, "set app info");
+    log_info(&app->log, "set app info");
     VkApplicationInfo app_info = {0};
     app_info.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
     app_info.pApplicationName = app->name;
@@ -120,7 +106,7 @@ int app_init_vulkan_create_instance(App *app) { /*{{{*/
     app_info.engineVersion = VK_MAKE_VERSION(1, 0, 0);
     app_info.apiVersion = VK_API_VERSION_1_0;
 
-    level_log(app, "set create info");
+    log_info(&app->log, "set create info");
     VkDebugUtilsMessengerCreateInfoEXT debug_create_info = {0};
     VkInstanceCreateInfo create_info = {0};
     create_info.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
@@ -130,7 +116,7 @@ int app_init_vulkan_create_instance(App *app) { /*{{{*/
     create_info.ppEnabledExtensionNames = vcs_iter_begin(app->required_extensions);
     if(app->validation.enable) {
         populate_debug_messenger_create_info(&debug_create_info);
-        level_log(app, "enable %zu validation layers", vcs_length(app->validation.layers));
+        log_info(&app->log, "enable %zu validation layers", vcs_length(app->validation.layers));
         create_info.enabledLayerCount = vcs_length(app->validation.layers);
         create_info.ppEnabledLayerNames = vcs_iter_begin(app->validation.layers);
         create_info.pNext = (VkDebugUtilsMessengerCreateInfoEXT *)&debug_create_info;
@@ -140,11 +126,11 @@ int app_init_vulkan_create_instance(App *app) { /*{{{*/
     }
     try(vkCreateInstance(&create_info, 0, &app->instance));
 
-    level_ok(app, "created instance");
-    level_up(app);
+    log_ok(&app->log, "created instance");
+    log_up(&app->log);
     return 0;
 error:
-    level_up(app);
+    log_up(&app->log);
     return -1;
 } /*}}}*/
 
@@ -170,22 +156,22 @@ error:
 int app_init_vulkan_setup_debug_messenger(App *app) { /*{{{*/
     assert_arg(app);
     if(!app->validation.enable) return 0;
-    level_down(app, "set up debug messenger");
+    log_down(&app->log, "set up debug messenger");
     VkDebugUtilsMessengerCreateInfoEXT create_info = {0};
     populate_debug_messenger_create_info(&create_info);
     /* call extension function */
     try(CreateDebugUtilsMessengerEXT(app->instance, &create_info, 0, &app->validation.messenger));
-    level_ok(app, "set up debug messenger");
-    level_up(app);
+    log_ok(&app->log, "set up debug messenger");
+    log_up(&app->log);
     return 0;
 error:
-    level_up(app);
+    log_up(&app->log);
     return -1;
 } /*}}}*/
 
 int app_init_vulkan_refresh_physical_devices(App *app) { /*{{{*/
     assert_arg(app);
-    level_down(app, "refresh available physical devices");
+    log_down(&app->log, "refresh available physical devices");
 
     uint32_t device_count = 0;
     vkEnumeratePhysicalDevices(app->instance, &device_count, 0);
@@ -200,14 +186,14 @@ int app_init_vulkan_refresh_physical_devices(App *app) { /*{{{*/
         vkGetPhysicalDeviceProperties(device, &device_properties);
         VkPhysicalDeviceFeatures device_features;
         vkGetPhysicalDeviceFeatures(device, &device_features);
-        level_log(app, "found '%s'", device_properties.deviceName);
+        log_info(&app->log, "found '%s'", device_properties.deviceName);
     }
 
-    level_ok(app, "refreshed available physical devices");
-    level_up(app);
+    log_ok(&app->log, "refreshed available physical devices");
+    log_up(&app->log);
     return 0;
 error:
-    level_up(app);
+    log_up(&app->log);
     return -1;
 } /*}}}*/
 
@@ -245,37 +231,37 @@ error:
 
 int app_init_vulkan_pick_physical_device(App *app) { /*{{{*/
     assert_arg(app);
-    level_down(app, "pick physical device");
+    log_down(&app->log, "pick physical device");
     try(app_init_vulkan_refresh_physical_devices(app));
     for(size_t i = 0; i < vVkPhysicalDevice_length(app->physical.available); ++i) {
         VkPhysicalDevice device = vVkPhysicalDevice_get_at(&app->physical.available, i);
         if(is_device_suitable(device)) {
             app->physical.active = device; // TODO actually pick a suitable physical device
-            level_log(app, "found suitable device");
+            log_info(&app->log, "found suitable device");
             break;
         }
     }
     if(!app->physical.active) {
         THROW("no suitable device found");
     }
-    level_ok(app, "picked physical device");
-    level_up(app);
+    log_ok(&app->log, "picked physical device");
+    log_up(&app->log);
     return 0;
 error:
-    level_up(app);
+    log_up(&app->log);
     return -1;
 } /*}}}*/
 
 int app_init_vulkan(App *app) { /*{{{*/
     assert_arg(app);
-    level_log(app, "initialize vulkan");
+    log_info(&app->log, "initialize vulkan");
     try(app_init_vulkan_create_instance(app));
     try(app_init_vulkan_setup_debug_messenger(app));
     try(app_init_vulkan_pick_physical_device(app));
-    level_ok(app, "initialized vulkan");
+    log_ok(&app->log, "initialized vulkan");
     return 0;
 error:
-    level_up(app);
+    log_up(&app->log);
     return -1;
 } /*}}}*/
 
@@ -283,6 +269,7 @@ int app_init(App *app) { /*{{{*/
     assert_arg(app);
     assert_arg(app->name);
     assert_arg(app->engine);
+    log_start(&app->log);
     try(app_init_window(app));
     try(app_init_vulkan(app));
     return 0;
