@@ -20,14 +20,15 @@ VEC_INCLUDE(VVkLayerProperties, vVkLayerProperties, VkLayerProperties, BY_VAL, E
 typedef struct App {
     const char *name;   // window name
     const char *engine; // engine name
+    int level;
     GLFWwindow *window;
     VCs required_extensions;
     struct {
         VCs layers;
         bool enable;
+        VkDebugUtilsMessengerEXT messenger;
     } validation;
     VkInstance instance;
-    VkDebugUtilsMessengerEXT debug_messenger;
 } App;
 
 int app_init(App *app);

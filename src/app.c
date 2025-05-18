@@ -1,5 +1,6 @@
 #include "app.h"
 #include "util.h"
+#include <rphii/colorprint.h>
 
 VEC_IMPLEMENT(VCs, vcs, const char *, BY_VAL, BASE, 0);
 VEC_IMPLEMENT(VCs, vcs, const char *, BY_VAL, ERR);
@@ -8,6 +9,18 @@ VEC_IMPLEMENT(VVkLayerProperties, vVkLayerProperties, VkLayerProperties, BY_VAL,
 VEC_IMPLEMENT(VVkLayerProperties, vVkLayerProperties, VkLayerProperties, BY_VAL, ERR);
 
 #include <cglm/cglm.h>
+
+void level_down(App *app) {
+    app->level += 2;
+}
+void level_up(App *app) {
+    app->level -= 2;
+}
+#define level_log(app, msg, ...)    \
+    println("%*s" F(">", FG_BL_B) " " msg, (app)->level, "", ##__VA_ARGS__)
+
+#define level_ok(app, msg, ...)    \
+    println("%*s" F("*", FG_GN_B BOLD) " " msg, (app)->level, "", ##__VA_ARGS__)
 
 static VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback( /*{{{*/
         VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
@@ -35,15 +48,19 @@ void populate_debug_messenger_create_info(VkDebugUtilsMessengerCreateInfoEXT *cr
 
 int app_init_window(App *app) { /*{{{*/
     assert_arg(app);
+    level_log(app, "initialize glfw");
     glfwInit();
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
     glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
     app->window = glfwCreateWindow(APP_WIDTH, APP_HEIGHT, app->name, 0, 0);
-    println(">>> glfw initialized");
+    level_ok(app, "initialized glfw");
     return (!app->window);
 } /*}}}*/
 
 bool app_init_check_validation_support(App *app) { /*{{{*/
+    assert_arg(app);
+    level_down(app);
+    level_log(app, "check validataion layer support");
     uint32_t layer_count;
     vkEnumerateInstanceLayerProperties(&layer_count, 0);
     VVkLayerProperties available_layers = {0};
@@ -59,12 +76,15 @@ bool app_init_check_validation_support(App *app) { /*{{{*/
             break;
         }
         if(!layer_found) return false;
-        println(">>> found %s", layer_name);
+        level_log(app, "found %s", layer_name);
     }
     vVkLayerProperties_free(&available_layers);
+    level_ok(app, "validataion layer supported");
+    level_up(app);
     return true;
 error:
     vVkLayerProperties_free(&available_layers);
+    level_up(app);
     return false;
 } /*}}}*/
 
@@ -87,15 +107,15 @@ error:
 
 int app_init_vulkan_create_instance(App *app) { /*{{{*/
     assert_arg(app);
-    println(">>> initialize vulkan > create instance");
+    level_down(app);
+    level_log(app, "create instance");
 
-    println(">>> initialize vulkan > check validation support");
     if(app->validation.enable && !app_init_check_validation_support(app)) {
         THROW("validation layers requested, but not available!");
     }
     try(get_required_extensions(app, &app->required_extensions));
 
-    println(">>> initialize vulkan > set app info");
+    level_log(app, "set app info");
     VkApplicationInfo app_info = {0};
     app_info.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
     app_info.pApplicationName = app->name;
@@ -104,7 +124,7 @@ int app_init_vulkan_create_instance(App *app) { /*{{{*/
     app_info.engineVersion = VK_MAKE_VERSION(1, 0, 0);
     app_info.apiVersion = VK_API_VERSION_1_0;
 
-    println(">>> initialize vulkan > set create info");
+    level_log(app, "set create info");
     VkDebugUtilsMessengerCreateInfoEXT debug_create_info = {0};
     VkInstanceCreateInfo create_info = {0};
     create_info.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
@@ -114,7 +134,7 @@ int app_init_vulkan_create_instance(App *app) { /*{{{*/
     create_info.ppEnabledExtensionNames = vcs_iter_begin(app->required_extensions);
     if(app->validation.enable) {
         populate_debug_messenger_create_info(&debug_create_info);
-        println(">>> enable %zu validation layers", vcs_length(app->validation.layers));
+        level_log(app, "enable %zu validation layers", vcs_length(app->validation.layers));
         create_info.enabledLayerCount = vcs_length(app->validation.layers);
         create_info.ppEnabledLayerNames = vcs_iter_begin(app->validation.layers);
         create_info.pNext = (VkDebugUtilsMessengerCreateInfoEXT *)&debug_create_info;
@@ -124,9 +144,11 @@ int app_init_vulkan_create_instance(App *app) { /*{{{*/
     }
     try(vkCreateInstance(&create_info, 0, &app->instance));
 
-    println(">>> initialize vulkan > created instance");
+    level_ok(app, "created instance");
+    level_up(app);
     return 0;
 error:
+    level_up(app);
     return -1;
 } /*}}}*/
 
@@ -151,25 +173,31 @@ error:
 
 int app_init_vulkan_setup_debug_messenger(App *app) {
     assert_arg(app);
-    println(">>> setting up debug messenger");
-    if(!app->validation.enable) return 0;
+    level_down(app);
+    if(!app->validation.enable) goto done;
+    level_log(app, "set up debug messenger");
     VkDebugUtilsMessengerCreateInfoEXT create_info = {0};
     populate_debug_messenger_create_info(&create_info);
     /* call extension function */
-    try(CreateDebugUtilsMessengerEXT(app->instance, &create_info, 0, &app->debug_messenger));
-    println(">>> successfully set up debug messenger");
+    try(CreateDebugUtilsMessengerEXT(app->instance, &create_info, 0, &app->validation.messenger));
+    level_ok(app, "set up debug messenger");
+done:
+    level_up(app);
     return 0;
 error:
+    level_up(app);
     return -1;
 }
 
 int app_init_vulkan(App *app) { /*{{{*/
     assert_arg(app);
-    println(">>> initialize vulkan");
+    level_log(app, "initialize vulkan");
     try(app_init_vulkan_create_instance(app));
     try(app_init_vulkan_setup_debug_messenger(app));
+    level_ok(app, "initialized vulkan");
     return 0;
 error:
+    level_up(app);
     return -1;
 } /*}}}*/
 
@@ -187,7 +215,7 @@ error:
 int app_free(App *app) { /*{{{*/
     assert_arg(app);
     if(app->validation.enable) {
-        DestroyDebugUtilsMessengerEXT(app->instance, app->debug_messenger, 0);
+        DestroyDebugUtilsMessengerEXT(app->instance, app->validation.messenger, 0);
     }
     if(app->instance) {
         vkDestroyInstance(app->instance, 0);
