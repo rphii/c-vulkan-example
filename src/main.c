@@ -12,7 +12,7 @@ int main() {
         .validation.enable = false,
 #else
         .validation.enable = true,
-        .validation.layers = VCS(
+        .validation.layers = RVCS(
             "VK_LAYER_KHRONOS_validation",
             ),
 #endif
