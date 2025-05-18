@@ -14,14 +14,16 @@ VEC_IMPLEMENT(VVkQueueFamilyProperties, vVkQueueFamilyProperties, VkQueueFamilyP
 
 #include <cglm/cglm.h>
 
-void level_down(App *app) {
-    app->level += 2;
-}
+#define level_down(app, msg, ...)   do { \
+        app->level += 2; \
+        println("%*s" F(">", FG_BL_B) " " msg, (app)->level, "", ##__VA_ARGS__); \
+    } while(0)
+
 void level_up(App *app) {
     app->level -= 2;
 }
 #define level_log(app, msg, ...)    \
-    println("%*s" F(">", FG_BL_B) " " msg, (app)->level, "", ##__VA_ARGS__)
+    println("%*s" F("-", FG_BL_B) " " msg, (app)->level, "", ##__VA_ARGS__)
 
 #define level_ok(app, msg, ...)    \
     println("%*s" F("*", FG_GN_B BOLD) " " msg, (app)->level, "", ##__VA_ARGS__)
@@ -62,8 +64,7 @@ int app_init_window(App *app) { /*{{{*/
 
 bool app_init_check_validation_support(App *app) { /*{{{*/
     assert_arg(app);
-    level_down(app);
-    level_log(app, "check validataion layer support");
+    level_down(app, "check validataion layer support");
     uint32_t layer_count;
     vkEnumerateInstanceLayerProperties(&layer_count, 0);
     VVkLayerProperties available_layers = {0};
@@ -110,8 +111,7 @@ error:
 
 int app_init_vulkan_create_instance(App *app) { /*{{{*/
     assert_arg(app);
-    level_down(app);
-    level_log(app, "create instance");
+    level_down(app, "create instance");
 
     if(app->validation.enable && !app_init_check_validation_support(app)) {
         THROW("validation layers requested, but not available!");
@@ -176,15 +176,13 @@ error:
 
 int app_init_vulkan_setup_debug_messenger(App *app) { /*{{{*/
     assert_arg(app);
-    level_down(app);
-    if(!app->validation.enable) goto done;
-    level_log(app, "set up debug messenger");
+    if(!app->validation.enable) return 0;
+    level_down(app, "set up debug messenger");
     VkDebugUtilsMessengerCreateInfoEXT create_info = {0};
     populate_debug_messenger_create_info(&create_info);
     /* call extension function */
     try(CreateDebugUtilsMessengerEXT(app->instance, &create_info, 0, &app->validation.messenger));
     level_ok(app, "set up debug messenger");
-done:
     level_up(app);
     return 0;
 error:
@@ -194,8 +192,7 @@ error:
 
 int app_init_vulkan_refresh_physical_devices(App *app) { /*{{{*/
     assert_arg(app);
-    level_down(app);
-    level_log(app, "refresh available physical devices");
+    level_down(app, "refresh available physical devices");
 
     uint32_t device_count = 0;
     vkEnumeratePhysicalDevices(app->instance, &device_count, 0);
@@ -221,7 +218,7 @@ error:
     return -1;
 } /*}}}*/
 
-int find_queue_families(VkPhysicalDevice device, QueueFamilyIndices *indices) {
+int find_queue_families(VkPhysicalDevice device, QueueFamilyIndices *indices) { /*{{{*/
     assert_arg(indices);
     int err = 0;
     uint32_t queue_family_count = 0;
@@ -242,21 +239,20 @@ error:
     queue_family_indices_clear(indices);
     err = -1;
     goto clean;
-}
+} /*}}}*/
 
-bool is_device_suitable(VkPhysicalDevice device) {
+bool is_device_suitable(VkPhysicalDevice device) { /*{{{*/
     QueueFamilyIndices indices = {0};
     try(find_queue_families(device, &indices));
 clean:
     return queue_family_indices_is_complete(indices);
 error:
     goto clean;
-}
+} /*}}}*/
 
 int app_init_vulkan_pick_physical_device(App *app) { /*{{{*/
     assert_arg(app);
-    level_down(app);
-    level_log(app, "pick physical device");
+    level_down(app, "pick physical device");
     try(app_init_vulkan_refresh_physical_devices(app));
     for(size_t i = 0; i < vVkPhysicalDevice_length(app->physical.available); ++i) {
         VkPhysicalDevice device = vVkPhysicalDevice_get_at(&app->physical.available, i);
