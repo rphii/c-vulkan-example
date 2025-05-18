@@ -2,6 +2,7 @@
 
 void log_start(Log *log) {
     clock_gettime(CLOCK_REALTIME, &log->t0);
+    log->level = -2;
 }
 
 void log_t_update(Log *log) {

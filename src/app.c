@@ -32,18 +32,19 @@ void populate_debug_messenger_create_info(VkDebugUtilsMessengerCreateInfoEXT *cr
 
 int app_init_window(App *app) { /*{{{*/
     assert_arg(app);
-    log_info(&app->log, "initialize glfw");
+    log_down(&app->log, "initialize glfw");
     glfwInit();
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
     glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
     app->window = glfwCreateWindow(APP_WIDTH, APP_HEIGHT, app->name, 0, 0);
     log_ok(&app->log, "initialized glfw");
+    log_up(&app->log);
     return (!app->window);
 } /*}}}*/
 
 bool app_init_check_validation_support(App *app) { /*{{{*/
     assert_arg(app);
-    log_down(&app->log, "check validataion layer support");
+    log_down(&app->log, "check validation layer support");
     uint32_t layer_count;
     vkEnumerateInstanceLayerProperties(&layer_count, 0);
     VVkLayerProperties available_layers = {0};
@@ -229,9 +230,8 @@ error:
     goto clean;
 } /*}}}*/
 
-bool is_device_suitable(VkPhysicalDevice device) { /*{{{*/
-    QueueFamilyIndices indices = {0};
-    try(find_queue_families(device, &indices));
+bool is_device_suitable(VkPhysicalDevice device, QueueFamilyIndices *indices) { /*{{{*/
+    try(find_queue_families(device, indices));
 clean:
     return queue_family_indices_is_complete(indices);
 error:
@@ -244,7 +244,7 @@ int app_init_vulkan_pick_physical_device(App *app) { /*{{{*/
     try(app_init_vulkan_refresh_physical_devices(app));
     for(size_t i = 0; i < vVkPhysicalDevice_length(app->physical.available); ++i) {
         VkPhysicalDevice device = vVkPhysicalDevice_get_at(&app->physical.available, i);
-        if(is_device_suitable(device)) {
+        if(is_device_suitable(device, &app->physical.indices)) {
             app->physical.active = device; // TODO actually pick a suitable physical device
             log_info(&app->log, "found suitable device");
             break;
@@ -261,13 +261,46 @@ error:
     return -1;
 } /*}}}*/
 
+int app_init_vulkan_create_logical_device(App *app) { /*{{{*/
+    assert_arg(app);
+    log_down(&app->log, "create logical device");
+    float queue_priority = 1.0f;
+    VkDeviceQueueCreateInfo queue_create_info = {0};
+    queue_create_info.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+    queue_create_info.queueFamilyIndex = app->physical.indices.graphics_family.value;
+    queue_create_info.queueCount = 1;
+    queue_create_info.pQueuePriorities = &queue_priority;
+    VkPhysicalDeviceFeatures device_features = {0};
+    VkDeviceCreateInfo create_info = {0};
+    create_info.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+    create_info.pQueueCreateInfos = &queue_create_info;
+    create_info.queueCreateInfoCount = 1;
+    create_info.pEnabledFeatures = &device_features;
+    create_info.enabledExtensionCount = 0;
+    if(app->validation.enable) {
+        create_info.enabledLayerCount = vcs_length(app->validation.layers);
+        create_info.ppEnabledLayerNames = vcs_iter_begin(app->validation.layers);
+    } else {
+        create_info.enabledLayerCount = 0;
+    }
+    try(vkCreateDevice(app->physical.active, &create_info, 0, &app->device));
+    log_ok(&app->log, "created logical device");
+    log_up(&app->log);
+    return 0;
+error:
+    log_up(&app->log);
+    return -1;
+} /*}}}*/
+
 int app_init_vulkan(App *app) { /*{{{*/
     assert_arg(app);
-    log_info(&app->log, "initialize vulkan");
+    log_down(&app->log, "initialize vulkan");
     try(app_init_vulkan_create_instance(app));
     try(app_init_vulkan_setup_debug_messenger(app));
     try(app_init_vulkan_pick_physical_device(app));
+    try(app_init_vulkan_create_logical_device(app));
     log_ok(&app->log, "initialized vulkan");
+    log_up(&app->log);
     return 0;
 error:
     log_up(&app->log);
@@ -288,16 +321,25 @@ error:
 
 int app_free(App *app) { /*{{{*/
     assert_arg(app);
+    log_down(&app->log, "clean up");
+    if(app->device) {
+        log_info(&app->log, "destroy logical device");
+        vkDestroyDevice(app->device, 0);
+    }
     if(app->validation.enable) {
+        log_info(&app->log, "destroy debug messenger");
         DestroyDebugUtilsMessengerEXT(app->instance, app->validation.messenger, 0);
     }
     if(app->instance) {
+        log_info(&app->log, "destroy instance");
         vkDestroyInstance(app->instance, 0);
     }
-    vVkPhysicalDevice_free(&app->physical.available);
-    vcs_free(&app->required_extensions);
     glfwDestroyWindow(app->window);
     glfwTerminate();
+    vVkPhysicalDevice_free(&app->physical.available);
+    vcs_free(&app->required_extensions);
+    log_ok(&app->log, "cleaned up");
+    log_up(&app->log);
     return 0;
 } /*}}}*/
 

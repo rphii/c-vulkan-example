@@ -34,9 +34,11 @@ typedef struct App {
     } validation;
     VkInstance instance;
     struct {
+        QueueFamilyIndices indices;
         VkPhysicalDevice active;
         VVkPhysicalDevice available;
     } physical;
+    VkDevice device;
 } App;
 
 int app_init(App *app);
