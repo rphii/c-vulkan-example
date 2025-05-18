@@ -19,9 +19,12 @@ int main() {
     };
 
     try(app_init(&app));
-    // while(!glfwWindowShouldClose(app.window)) {
-    //     glfwPollEvents();
-    // }
+#if 0
+    while(!glfwWindowShouldClose(app.window)) {
+        glfwPollEvents();
+    }
+#endif
+
 clean:
     app_free(&app);
     return err;
