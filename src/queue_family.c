@@ -8,7 +8,7 @@ void queue_family_indices_clear(QueueFamilyIndices *indices) {
 
 bool queue_family_indices_is_complete(QueueFamilyIndices *indices) {
     assert_arg(indices);
-    return indices->graphics_family.has_value;
+    return indices->graphics_family.has_value && indices->present_family.has_value;
 }
 
 
