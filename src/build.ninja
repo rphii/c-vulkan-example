@@ -29,9 +29,13 @@ build $bdir/v/VVkLayerProperties.o: cc $root/v/VVkLayerProperties.c
 build $bdir/v/VVkPhysicalDevice.o: cc $root/v/VVkPhysicalDevice.c
 build $bdir/v/VVkQueueFamilyProperties.o: cc $root/v/VVkQueueFamilyProperties.c
 build $bdir/v/VVkDeviceQueueCreateInfo.o: cc $root/v/VVkDeviceQueueCreateInfo.c
+build $bdir/v/VVkExtensionProperties.o: cc $root/v/VVkExtensionProperties.c
 
 build c-vulkan: link $bdir/main.o $bdir/app.o $bdir/queue_family.o $bdir/optional.o $bdir/log.o $
-    $bdir/v/VVkLayerProperties.o $bdir/v/VVkPhysicalDevice.o $bdir/v/VVkQueueFamilyProperties.o $
-    $bdir/v/VVkDeviceQueueCreateInfo.o
+    $bdir/v/VVkLayerProperties.o $
+    $bdir/v/VVkPhysicalDevice.o $
+    $bdir/v/VVkQueueFamilyProperties.o $
+    $bdir/v/VVkDeviceQueueCreateInfo.o $
+    $bdir/v/VVkExtensionProperties.o $
 
 

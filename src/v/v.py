@@ -3,6 +3,7 @@ vectors = [
         "VkPhysicalDevice",
         "VkQueueFamilyProperties",
         "VkDeviceQueueCreateInfo",
+        "VkExtensionProperties",
         ]
 
 for vector in vectors:
@@ -24,4 +25,12 @@ for vector in vectors:
     #print(f"{source}>>>V{vector}.c");
     with open(f"V{vector}.c", "w") as f:
         f.write(source)
+
+print("\n=== build.ninja build ===")
+for vector in vectors:
+    print(f"build $bdir/v/V{vector}.o: cc $root/v/V{vector}.c")
+
+print("\n=== build.ninja link ===")
+for vector in vectors:
+    print(f"    $bdir/v/V{vector}.o $")
 

@@ -247,10 +247,38 @@ error:
     goto clean;
 } /*}}}*/
 
-bool is_device_suitable(VkPhysicalDevice device, VkSurfaceKHR surface, QueueFamilyIndices *indices) { /*{{{*/
-    try(find_queue_families(device, surface, indices));
+bool check_device_extension_support(VkPhysicalDevice device, RVCs device_extensions) {
+    uint32_t extension_count;
+    vkEnumerateDeviceExtensionProperties(device, 0, &extension_count, 0);
+    VVkExtensionProperties extension_properties = {0};
+    bool found = false;
+    try(vVkExtensionProperties_resize(&extension_properties, extension_count));
+    vkEnumerateDeviceExtensionProperties(device, 0, &extension_count, vVkExtensionProperties_iter_begin(extension_properties));
+    for(size_t j = 0; j < rvcs_length(device_extensions); ++j) {
+        const char *required = rvcs_get_at(&device_extensions, j);
+        found = false;
+        for(size_t i = 0; i < vVkExtensionProperties_length(extension_properties); ++i) {
+            VkExtensionProperties extension = vVkExtensionProperties_get_at(&extension_properties, i);
+            if(strcmp(extension.extensionName, required)) continue;
+            found = true;
+            break;
+        }
+        if(!found) goto clean;
+    }
 clean:
-    return queue_family_indices_is_complete(indices);
+    vVkExtensionProperties_free(&extension_properties);
+    return found;
+error:
+    found = false;
+    goto clean;
+}
+
+bool is_device_suitable(VkPhysicalDevice device, VkSurfaceKHR surface, QueueFamilyIndices *indices, RVCs device_extensions) { /*{{{*/
+    bool extensions_supported = false;
+    try(find_queue_families(device, surface, indices));
+    extensions_supported = check_device_extension_support(device, device_extensions);
+clean:
+    return queue_family_indices_is_complete(indices) && extensions_supported;
 error:
     goto clean;
 } /*}}}*/
@@ -261,7 +289,7 @@ int app_init_vulkan_pick_physical_device(App *app) { /*{{{*/
     try(app_init_vulkan_refresh_physical_devices(app));
     for(size_t i = 0; i < vVkPhysicalDevice_length(app->physical.available); ++i) {
         VkPhysicalDevice device = vVkPhysicalDevice_get_at(&app->physical.available, i);
-        if(is_device_suitable(device, app->surface, &app->physical.indices)) {
+        if(is_device_suitable(device, app->surface, &app->physical.indices, app->device_extensions)) {
             app->physical.active = device; // TODO actually pick a suitable physical device
             log_info(&app->log, "found suitable device");
             break;
