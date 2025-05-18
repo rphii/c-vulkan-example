@@ -2,6 +2,7 @@ vectors = [
         "VkLayerProperties",
         "VkPhysicalDevice",
         "VkQueueFamilyProperties",
+        "VkDeviceQueueCreateInfo",
         ]
 
 for vector in vectors:

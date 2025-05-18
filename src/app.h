@@ -17,6 +17,7 @@ VEC_INCLUDE(VCs, vcs, const char *, BY_VAL, ERR);
 #include "v/VVkLayerProperties.h"
 #include "v/VVkPhysicalDevice.h"
 #include "v/VVkQueueFamilyProperties.h"
+#include "v/VVkDeviceQueueCreateInfo.h"
 
 #include "queue_family.h"
 #include "log.h"
@@ -40,6 +41,8 @@ typedef struct App {
     } physical;
     VkDevice device;
     VkQueue graphics_queue;
+    VkSurfaceKHR surface;
+    VkQueue present_queue;
 } App;
 
 int app_init(App *app);

@@ -179,6 +179,18 @@ error:
     return -1;
 } /*}}}*/
 
+int app_init_vulkan_create_surface(App *app) {
+    assert_arg(app);
+    log_down(&app->log, "create surface");
+    try(glfwCreateWindowSurface(app->instance, app->window, 0, &app->surface));
+    log_ok(&app->log, "created surface");
+    log_up(&app->log);
+    return 0;
+error:
+    log_up(&app->log);
+    return -1;
+}
+
 int app_init_vulkan_refresh_physical_devices(App *app) { /*{{{*/
     assert_arg(app);
     log_down(&app->log, "refresh available physical devices");
@@ -207,7 +219,7 @@ error:
     return -1;
 } /*}}}*/
 
-int find_queue_families(VkPhysicalDevice device, QueueFamilyIndices *indices) { /*{{{*/
+int find_queue_families(VkPhysicalDevice device, VkSurfaceKHR surface, QueueFamilyIndices *indices) { /*{{{*/
     assert_arg(indices);
     int err = 0;
     uint32_t queue_family_count = 0;
@@ -220,6 +232,11 @@ int find_queue_families(VkPhysicalDevice device, QueueFamilyIndices *indices) { 
         if(queue_family.queueFlags & VK_QUEUE_GRAPHICS_BIT) {
             optional_u32_set(&indices->graphics_family, i);
         }
+        VkBool32 present_support = false;
+        vkGetPhysicalDeviceSurfaceSupportKHR(device, i, surface, &present_support);
+        if(present_support) {
+            optional_u32_set(&indices->present_family, i);
+        }
     }
 clean:
     vVkQueueFamilyProperties_free(&queue_families);
@@ -230,8 +247,8 @@ error:
     goto clean;
 } /*}}}*/
 
-bool is_device_suitable(VkPhysicalDevice device, QueueFamilyIndices *indices) { /*{{{*/
-    try(find_queue_families(device, indices));
+bool is_device_suitable(VkPhysicalDevice device, VkSurfaceKHR surface, QueueFamilyIndices *indices) { /*{{{*/
+    try(find_queue_families(device, surface, indices));
 clean:
     return queue_family_indices_is_complete(indices);
 error:
@@ -244,7 +261,7 @@ int app_init_vulkan_pick_physical_device(App *app) { /*{{{*/
     try(app_init_vulkan_refresh_physical_devices(app));
     for(size_t i = 0; i < vVkPhysicalDevice_length(app->physical.available); ++i) {
         VkPhysicalDevice device = vVkPhysicalDevice_get_at(&app->physical.available, i);
-        if(is_device_suitable(device, &app->physical.indices)) {
+        if(is_device_suitable(device, app->surface, &app->physical.indices)) {
             app->physical.active = device; // TODO actually pick a suitable physical device
             log_info(&app->log, "found suitable device");
             break;
@@ -264,17 +281,38 @@ error:
 int app_init_vulkan_create_logical_device(App *app) { /*{{{*/
     assert_arg(app);
     log_down(&app->log, "create logical device");
+    int err = 0;
+
+    VVkDeviceQueueCreateInfo queue_create_infos = {0};
+    uint32_t queue_families[] = {
+        app->physical.indices.graphics_family.value,
+        app->physical.indices.present_family.value,
+    };
     float queue_priority = 1.0f;
-    VkDeviceQueueCreateInfo queue_create_info = {0};
-    queue_create_info.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-    queue_create_info.queueFamilyIndex = app->physical.indices.graphics_family.value;
-    queue_create_info.queueCount = 1;
-    queue_create_info.pQueuePriorities = &queue_priority;
+    for(size_t i = 0; i < sizearray(queue_families); ++i) {
+        uint32_t queue_family = queue_families[i];
+        bool skip = false;
+        for(size_t j = 0; j < i; ++j) {
+            if(queue_families[j] == queue_family) {
+                skip = true;
+                break;
+            }
+        }
+        if(skip) continue;
+        /* unique queue family found */
+        VkDeviceQueueCreateInfo queue_create_info = {0};
+        queue_create_info.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+        queue_create_info.queueFamilyIndex = queue_family;
+        queue_create_info.queueCount = 1;
+        queue_create_info.pQueuePriorities = &queue_priority;
+        try(vVkDeviceQueueCreateInfo_push_back(&queue_create_infos, queue_create_info));
+    }
+
     VkPhysicalDeviceFeatures device_features = {0};
     VkDeviceCreateInfo create_info = {0};
     create_info.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-    create_info.pQueueCreateInfos = &queue_create_info;
-    create_info.queueCreateInfoCount = 1;
+    create_info.pQueueCreateInfos = vVkDeviceQueueCreateInfo_iter_begin(queue_create_infos);
+    create_info.queueCreateInfoCount = vVkDeviceQueueCreateInfo_length(queue_create_infos);
     create_info.pEnabledFeatures = &device_features;
     create_info.enabledExtensionCount = 0;
     if(app->validation.enable) {
@@ -284,14 +322,20 @@ int app_init_vulkan_create_logical_device(App *app) { /*{{{*/
         create_info.enabledLayerCount = 0;
     }
     try(vkCreateDevice(app->physical.active, &create_info, 0, &app->device));
+
     log_info(&app->log, "get graphics queue");
     vkGetDeviceQueue(app->device, app->physical.indices.graphics_family.value, 0, &app->graphics_queue);
+    log_info(&app->log, "get present queue");
+    vkGetDeviceQueue(app->device, app->physical.indices.present_family.value, 0, &app->present_queue);
     log_ok(&app->log, "created logical device");
     log_up(&app->log);
-    return 0;
+clean:
+    vVkDeviceQueueCreateInfo_free(&queue_create_infos);
+    return err;
 error:
     log_up(&app->log);
-    return -1;
+    err = -1;
+    goto clean;
 } /*}}}*/
 
 int app_init_vulkan(App *app) { /*{{{*/
@@ -299,6 +343,7 @@ int app_init_vulkan(App *app) { /*{{{*/
     log_down(&app->log, "initialize vulkan");
     try(app_init_vulkan_create_instance(app));
     try(app_init_vulkan_setup_debug_messenger(app));
+    try(app_init_vulkan_create_surface(app));
     try(app_init_vulkan_pick_physical_device(app));
     try(app_init_vulkan_create_logical_device(app));
     log_ok(&app->log, "initialized vulkan");
@@ -324,6 +369,10 @@ error:
 int app_free(App *app) { /*{{{*/
     assert_arg(app);
     log_down(&app->log, "clean up");
+    if(app->surface) {
+        log_info(&app->log, "destroy surface");
+        vkDestroySurfaceKHR(app->instance, app->surface, 0);
+    }
     if(app->device) {
         log_info(&app->log, "destroy logical device");
         vkDestroyDevice(app->device, 0);
