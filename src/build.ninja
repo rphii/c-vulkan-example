@@ -18,6 +18,16 @@ rule cc
 rule link
     command = $cc $ldflags -o $out $in
 
+rule shader
+    command = glslc $in -o $out
+
+rule blobify
+    command = $root/shaders/blobify.sh $in > $out
+
+build $bdir/shaders/vert.spv: shader $root/shaders/shader.vert
+build $bdir/shaders/frag.spv: shader $root/shaders/shader.frag
+build $root/shaders/blob.h: blobify $bdir/shaders/vert.spv $bdir/shaders/frag.spv
+
 build $bdir/main.o: cc $root/main.c
 build $bdir/app.o: cc $root/app.c
 build $bdir/queue_family.o: cc $root/queue_family.c
@@ -34,6 +44,8 @@ build $bdir/v/VVkPhysicalDevice.o: cc $root/v/VVkPhysicalDevice.c
 build $bdir/v/VVkDeviceQueueCreateInfo.o: cc $root/v/VVkDeviceQueueCreateInfo.c
 build $bdir/v/VVkSurfaceFormatKHR.o: cc $root/v/VVkSurfaceFormatKHR.c
 build $bdir/v/VVkImage.o: cc $root/v/VVkImage.c
+
+
 
 build c-vulkan: link $bdir/main.o $bdir/app.o $bdir/queue_family.o $bdir/optional.o $
     $bdir/log.o $bdir/swap_chain_support.o $

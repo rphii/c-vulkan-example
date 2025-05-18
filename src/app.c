@@ -506,6 +506,48 @@ error:
     return -1;
 }
 
+int create_shader_module(VkDevice device, VkShaderModule *shader_module, const unsigned char *code, const unsigned int len) {
+    assert_arg(code);
+    VkShaderModuleCreateInfo create_info = {0};
+    create_info.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+    create_info.codeSize = len;
+    create_info.pCode = (uint32_t *)code;
+    try(vkCreateShaderModule(device, &create_info, 0, shader_module));
+    return 0;
+error:
+    return -1;
+}
+
+#include "shaders/blob.h"
+
+int app_init_vulkan_create_graphics_pipeline(App *app) {
+    assert_arg(app);
+    log_down(&app->log, "create graphics pipeline");
+    log_info(&app->log, "create shader modules");
+    VkShaderModule vert_shader_module, frag_shader_module;
+    try(create_shader_module(app->device, &vert_shader_module, build_shaders_vert_spv, build_shaders_vert_spv_len));
+    try(create_shader_module(app->device, &frag_shader_module, build_shaders_frag_spv, build_shaders_frag_spv_len));
+    VkPipelineShaderStageCreateInfo vert_shader_stage_info = {0};
+    vert_shader_stage_info.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    vert_shader_stage_info.stage = VK_SHADER_STAGE_VERTEX_BIT;
+    vert_shader_stage_info.module = vert_shader_module;
+    vert_shader_stage_info.pName = "main";
+    VkPipelineShaderStageCreateInfo frag_shader_stage_info = {0};
+    frag_shader_stage_info.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    frag_shader_stage_info.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+    frag_shader_stage_info.module = frag_shader_module;
+    frag_shader_stage_info.pName = "main";
+    vkDestroyShaderModule(app->device, vert_shader_module, 0);
+    vkDestroyShaderModule(app->device, frag_shader_module, 0);
+    VkPipelineShaderStageCreateInfo shader_stages[] = {vert_shader_stage_info, frag_shader_stage_info};
+    log_ok(&app->log, "created graphics pipeline");
+    log_up(&app->log);
+    return 0;
+error:
+    log_up(&app->log);
+    return -1;
+}
+
 int app_init_vulkan(App *app) { /*{{{*/
     assert_arg(app);
     log_down(&app->log, "initialize vulkan");
@@ -516,6 +558,7 @@ int app_init_vulkan(App *app) { /*{{{*/
     try(app_init_vulkan_create_logical_device(app));
     try(app_init_vulkan_create_swap_chain(app));
     try(app_init_vulkan_create_image_views(app));
+    try(app_init_vulkan_create_graphics_pipeline(app));
     log_ok(&app->log, "initialized vulkan");
     log_up(&app->log);
     return 0;
