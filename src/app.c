@@ -50,8 +50,8 @@ bool app_init_check_validation_support(App *app) { /*{{{*/
     VVkLayerProperties available_layers = {0};
     try(vVkLayerProperties_resize(&available_layers, layer_count));
     vkEnumerateInstanceLayerProperties(&layer_count, available_layers.items);
-    for(size_t j = 0; j < vcs_length(app->validation.layers); ++j) {
-        const char *layer_name = vcs_get_at(&app->validation.layers, j);
+    for(size_t j = 0; j < rvcs_length(app->validation.layers); ++j) {
+        const char *layer_name = rvcs_get_at(&app->validation.layers, j);
         bool layer_found = false;
         for(size_t i = 0; i < vVkLayerProperties_length(available_layers); ++i) {
             VkLayerProperties layer_props = vVkLayerProperties_get_at(&available_layers, i);
@@ -126,9 +126,9 @@ int app_init_vulkan_create_instance(App *app) { /*{{{*/
     create_info.ppEnabledExtensionNames = vcs_iter_begin(app->required_extensions);
     if(app->validation.enable) {
         populate_debug_messenger_create_info(&debug_create_info);
-        log_info(&app->log, "enable %zu validation layers", vcs_length(app->validation.layers));
-        create_info.enabledLayerCount = vcs_length(app->validation.layers);
-        create_info.ppEnabledLayerNames = vcs_iter_begin(app->validation.layers);
+        log_info(&app->log, "enable %zu validation layers", rvcs_length(app->validation.layers));
+        create_info.enabledLayerCount = rvcs_length(app->validation.layers);
+        create_info.ppEnabledLayerNames = rvcs_iter_begin(app->validation.layers);
         create_info.pNext = (VkDebugUtilsMessengerCreateInfoEXT *)&debug_create_info;
     } else {
         create_info.enabledLayerCount = 0;
@@ -316,8 +316,8 @@ int app_init_vulkan_create_logical_device(App *app) { /*{{{*/
     create_info.pEnabledFeatures = &device_features;
     create_info.enabledExtensionCount = 0;
     if(app->validation.enable) {
-        create_info.enabledLayerCount = vcs_length(app->validation.layers);
-        create_info.ppEnabledLayerNames = vcs_iter_begin(app->validation.layers);
+        create_info.enabledLayerCount = rvcs_length(app->validation.layers);
+        create_info.ppEnabledLayerNames = rvcs_iter_begin(app->validation.layers);
     } else {
         create_info.enabledLayerCount = 0;
     }

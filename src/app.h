@@ -13,6 +13,10 @@ VEC_INCLUDE(VCs, vcs, const char *, BY_VAL, ERR);
         .items = (const char *[]){__VA_ARGS__},\
         .last = sizeof((const char *[]){__VA_ARGS__})/sizeof(*(const char *[]){__VA_ARGS__}), \
     }
+#define RVCS(...)    (RVCs){ \
+        .items = (const char *[]){__VA_ARGS__},\
+        .last = sizeof((const char *[]){__VA_ARGS__})/sizeof(*(const char *[]){__VA_ARGS__}), \
+    }
 
 #include "v/VVkLayerProperties.h"
 #include "v/VVkPhysicalDevice.h"
@@ -29,7 +33,7 @@ typedef struct App {
     GLFWwindow *window;
     VCs required_extensions;
     struct {
-        VCs layers;
+        RVCs layers;
         bool enable;
         VkDebugUtilsMessengerEXT messenger;
     } validation;
