@@ -284,6 +284,8 @@ int app_init_vulkan_create_logical_device(App *app) { /*{{{*/
         create_info.enabledLayerCount = 0;
     }
     try(vkCreateDevice(app->physical.active, &create_info, 0, &app->device));
+    log_info(&app->log, "get graphics queue");
+    vkGetDeviceQueue(app->device, app->physical.indices.graphics_family.value, 0, &app->graphics_queue);
     log_ok(&app->log, "created logical device");
     log_up(&app->log);
     return 0;
