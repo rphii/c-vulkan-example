@@ -2,7 +2,7 @@ root = .
 bdir = build
 
 cc = gcc
-optimize = -O2 -march=native -flto -ffat-lto-objects -DNDEBUG
+optimize = -O2 -march=native -flto -ffat-lto-objects
 #-DNDEBUG -flto -ffat-lto-objects
 common = 
 #-fsanitize=address -ggdb3 -rdynamic
