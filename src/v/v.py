@@ -1,10 +1,12 @@
-vectors = [
+vectors = {
         "VkLayerProperties",
         "VkPhysicalDevice",
         "VkQueueFamilyProperties",
         "VkDeviceQueueCreateInfo",
         "VkExtensionProperties",
-        ]
+        "VkSurfaceFormatKHR",
+        "VkPresentModeKHR",
+        }
 
 for vector in vectors:
     print(f"Create vector file for : {vector}")

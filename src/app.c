@@ -275,10 +275,18 @@ error:
 
 bool is_device_suitable(VkPhysicalDevice device, VkSurfaceKHR surface, QueueFamilyIndices *indices, RVCs device_extensions) { /*{{{*/
     bool extensions_supported = false;
+    bool swap_chain_adequate = false;
+    SwapChainSupportDetails swap_chain_support = {0};
     try(find_queue_families(device, surface, indices));
     extensions_supported = check_device_extension_support(device, device_extensions);
+    if(extensions_supported) {
+        try(swap_chain_support_query(device, surface, &swap_chain_support));
+        swap_chain_adequate = vVkSurfaceFormatKHR_length(swap_chain_support.formats) && 
+            vVkPresentModeKHR_length(swap_chain_support.present_modes);
+    }
 clean:
-    return queue_family_indices_is_complete(indices) && extensions_supported;
+    swap_chain_support_free(&swap_chain_support);
+    return queue_family_indices_is_complete(indices) && extensions_supported && swap_chain_adequate;
 error:
     goto clean;
 } /*}}}*/
@@ -342,7 +350,8 @@ int app_init_vulkan_create_logical_device(App *app) { /*{{{*/
     create_info.pQueueCreateInfos = vVkDeviceQueueCreateInfo_iter_begin(queue_create_infos);
     create_info.queueCreateInfoCount = vVkDeviceQueueCreateInfo_length(queue_create_infos);
     create_info.pEnabledFeatures = &device_features;
-    create_info.enabledExtensionCount = 0;
+    create_info.enabledExtensionCount = rvcs_length(app->device_extensions);
+    create_info.ppEnabledExtensionNames = rvcs_iter_begin(app->device_extensions);
     if(app->validation.enable) {
         create_info.enabledLayerCount = rvcs_length(app->validation.layers);
         create_info.ppEnabledLayerNames = rvcs_iter_begin(app->validation.layers);

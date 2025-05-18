@@ -24,6 +24,7 @@ VEC_INCLUDE(VCs, vcs, const char *, BY_VAL, ERR);
 #include "v/VVkDeviceQueueCreateInfo.h"
 #include "v/VVkExtensionProperties.h"
 
+#include "swap_chain_support.h"
 #include "queue_family.h"
 #include "log.h"
 
