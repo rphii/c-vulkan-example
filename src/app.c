@@ -72,19 +72,28 @@ error:
 } /*}}}*/
 
 int get_required_extensions(App *app, VCs *required_extensions) { /*{{{*/
+    assert_arg(app);
+    assert_arg(required_extensions);
+    log_down(&app->log, "get required extensions");
     vcs_clear(required_extensions);
     uint32_t glfw_extension_count = 0;
     const char **glfw_extensions = glfwGetRequiredInstanceExtensions(&glfw_extension_count);
     for(size_t i = 0; i < glfw_extension_count; ++i) {
+        log_info(&app->log, "require %s", glfw_extensions[i]);
         try(vcs_push_back(required_extensions, glfw_extensions[i]));
     }
     if(app->validation.enable) {
+        log_info(&app->log, "require %s", VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
         try(vcs_push_back(required_extensions, VK_EXT_DEBUG_UTILS_EXTENSION_NAME));
     }
     // macOS
+    log_info(&app->log, "require %s", VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME);
     try(vcs_push_back(required_extensions, VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME));
+    log_ok(&app->log, "got required extensions");
+    log_up(&app->log);
     return 0;
 error:
+    log_up(&app->log);
     return -1;
 } /*}}}*/
 
