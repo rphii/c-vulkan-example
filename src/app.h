@@ -24,6 +24,7 @@ VEC_INCLUDE(VCs, vcs, const char *, BY_VAL, ERR);
 #include "v/VVkDeviceQueueCreateInfo.h"
 #include "v/VVkExtensionProperties.h"
 #include "v/VVkImage.h"
+#include "v/VVkImageView.h"
 
 #include "swap_chain_support.h"
 #include "queue_family.h"
@@ -55,6 +56,7 @@ typedef struct App {
     VVkImage swap_chain_images;
     VkFormat swap_chain_image_format;
     VkExtent2D swap_chain_extent;
+    VVkImageView swap_chain_image_views;
 } App;
 
 int app_init(App *app);
