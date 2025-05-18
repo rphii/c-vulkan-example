@@ -7,7 +7,7 @@ typedef struct QueueFamilyIndices {
 } QueueFamilyIndices;
 
 void queue_family_indices_clear(QueueFamilyIndices *indices);
-bool queue_family_indices_is_complete(QueueFamilyIndices indices);
+bool queue_family_indices_is_complete(QueueFamilyIndices *indices);
 
 #define QUEUE_FAMILY_H
 #endif
