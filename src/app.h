@@ -23,6 +23,7 @@ VEC_INCLUDE(VCs, vcs, const char *, BY_VAL, ERR);
 #include "v/VVkQueueFamilyProperties.h"
 #include "v/VVkDeviceQueueCreateInfo.h"
 #include "v/VVkExtensionProperties.h"
+#include "v/VVkImage.h"
 
 #include "swap_chain_support.h"
 #include "queue_family.h"
@@ -50,6 +51,10 @@ typedef struct App {
     VkQueue graphics_queue;
     VkSurfaceKHR surface;
     VkQueue present_queue;
+    VkSwapchainKHR swap_chain;
+    VVkImage swap_chain_images;
+    VkFormat swap_chain_image_format;
+    VkExtent2D swap_chain_extent;
 } App;
 
 int app_init(App *app);

@@ -179,7 +179,7 @@ error:
     return -1;
 } /*}}}*/
 
-int app_init_vulkan_create_surface(App *app) {
+int app_init_vulkan_create_surface(App *app) { /*{{{*/
     assert_arg(app);
     log_down(&app->log, "create surface");
     try(glfwCreateWindowSurface(app->instance, app->window, 0, &app->surface));
@@ -189,7 +189,7 @@ int app_init_vulkan_create_surface(App *app) {
 error:
     log_up(&app->log);
     return -1;
-}
+} /*}}}*/
 
 int app_init_vulkan_refresh_physical_devices(App *app) { /*{{{*/
     assert_arg(app);
@@ -247,7 +247,7 @@ error:
     goto clean;
 } /*}}}*/
 
-bool check_device_extension_support(VkPhysicalDevice device, RVCs device_extensions) {
+bool check_device_extension_support(VkPhysicalDevice device, RVCs device_extensions) { /*{{{*/
     uint32_t extension_count;
     vkEnumerateDeviceExtensionProperties(device, 0, &extension_count, 0);
     VVkExtensionProperties extension_properties = {0};
@@ -271,7 +271,7 @@ clean:
 error:
     found = false;
     goto clean;
-}
+} /*}}}*/
 
 bool is_device_suitable(VkPhysicalDevice device, VkSurfaceKHR surface, QueueFamilyIndices *indices, RVCs device_extensions) { /*{{{*/
     bool extensions_supported = false;
@@ -375,6 +375,106 @@ error:
     goto clean;
 } /*}}}*/
 
+VkSurfaceFormatKHR choose_swap_surface_format(VVkSurfaceFormatKHR *available_formats) {
+    assert_arg(available_formats);
+    for(size_t i = 0; i < vVkSurfaceFormatKHR_length(*available_formats); ++i) {
+        VkSurfaceFormatKHR available_format = vVkSurfaceFormatKHR_get_at(available_formats, i);
+        if(available_format.format == VK_FORMAT_B8G8R8A8_SRGB &&
+                available_format.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR) {
+            return available_format;
+        }
+    }
+    return vVkSurfaceFormatKHR_get_front(available_formats);
+}
+
+VkPresentModeKHR choose_swap_present_mode(VVkPresentModeKHR *available_present_modes) {
+    assert_arg(available_present_modes);
+    for(size_t i = 0; i < vVkPresentModeKHR_length(*available_present_modes); ++i) {
+        VkPresentModeKHR available_present_mode = vVkPresentModeKHR_get_at(available_present_modes, i);
+        if(available_present_mode == VK_PRESENT_MODE_MAILBOX_KHR) {
+            return available_present_mode;
+        }
+    }
+    return VK_PRESENT_MODE_FIFO_KHR;
+}
+
+VkExtent2D choose_swap_extent(GLFWwindow *window, VkSurfaceCapabilitiesKHR *capabilities) {
+    assert_arg(capabilities);
+    if(capabilities->currentExtent.width != UINT32_MAX) {
+        return capabilities->currentExtent;
+    } else {
+        int width, height;
+        glfwGetFramebufferSize(window, &width, &height);
+        VkExtent2D actual_extent = {
+            (uint32_t)width, (uint32_t)height,
+        };
+        /* clamp actual extent */
+        if(actual_extent.width < capabilities->minImageExtent.width) actual_extent.width = capabilities->minImageExtent.width;
+        if(actual_extent.width > capabilities->maxImageExtent.width) actual_extent.width = capabilities->maxImageExtent.width;
+        if(actual_extent.height < capabilities->minImageExtent.height) actual_extent.height = capabilities->minImageExtent.height;
+        if(actual_extent.height > capabilities->maxImageExtent.height) actual_extent.height = capabilities->maxImageExtent.height;
+        return actual_extent;
+    }
+}
+
+int app_init_vulkan_create_swap_chain(App *app) {
+    assert_arg(app);
+    log_down(&app->log, "create swap chain");
+    int err = 0;
+    SwapChainSupportDetails swap_chain_support = {0};
+    try(swap_chain_support_query(app->physical.active, app->surface, &swap_chain_support));
+    VkSurfaceFormatKHR surface_format = choose_swap_surface_format(&swap_chain_support.formats);
+    VkPresentModeKHR present_mode = choose_swap_present_mode(&swap_chain_support.present_modes);
+    VkExtent2D extent = choose_swap_extent(app->window, &swap_chain_support.capabilities);
+    uint32_t image_count = swap_chain_support.capabilities.minImageCount + 1;
+    if(swap_chain_support.capabilities.maxImageCount > 0 && image_count > swap_chain_support.capabilities.maxImageCount) {
+        image_count = swap_chain_support.capabilities.maxImageCount;
+    }
+    VkSwapchainCreateInfoKHR create_info = {0};
+    create_info.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
+    create_info.surface = app->surface;
+    create_info.minImageCount = image_count;
+    create_info.imageFormat = surface_format.format;
+    create_info.imageColorSpace = surface_format.colorSpace;
+    create_info.imageExtent = extent;
+    create_info.imageArrayLayers = 1;
+    create_info.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+    QueueFamilyIndices indices = app->physical.indices;
+    uint32_t queue_family_indices[] = {
+        indices.graphics_family.value,
+        indices.present_family.value,
+    };
+    if(indices.graphics_family.value != indices.present_family.value) {
+        create_info.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
+        create_info.queueFamilyIndexCount = 2;
+        create_info.pQueueFamilyIndices = queue_family_indices;
+    } else {
+        create_info.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
+        create_info.queueFamilyIndexCount = 0; // optional
+        create_info.pQueueFamilyIndices = 0; // optional
+    }
+    create_info.preTransform = swap_chain_support.capabilities.currentTransform;
+    create_info.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
+    create_info.presentMode = present_mode;
+    create_info.clipped = VK_TRUE;
+    create_info.oldSwapchain = VK_NULL_HANDLE;
+    app->swap_chain_extent = extent;
+    app->swap_chain_image_format = surface_format.format;
+    try(vkCreateSwapchainKHR(app->device, &create_info, 0, &app->swap_chain));
+    log_info(&app->log, "retrieve swap chain images");
+    vkGetSwapchainImagesKHR(app->device, app->swap_chain, &image_count, 0);
+    try(vVkImage_resize(&app->swap_chain_images, image_count));
+    vkGetSwapchainImagesKHR(app->device, app->swap_chain, &image_count, vVkImage_iter_begin(app->swap_chain_images));
+    log_ok(&app->log, "created swap chain");
+clean:
+    swap_chain_support_free(&swap_chain_support);
+    log_up(&app->log);
+    return err;
+error:
+    err = -1;
+    goto clean;
+}
+
 int app_init_vulkan(App *app) { /*{{{*/
     assert_arg(app);
     log_down(&app->log, "initialize vulkan");
@@ -383,6 +483,7 @@ int app_init_vulkan(App *app) { /*{{{*/
     try(app_init_vulkan_create_surface(app));
     try(app_init_vulkan_pick_physical_device(app));
     try(app_init_vulkan_create_logical_device(app));
+    try(app_init_vulkan_create_swap_chain(app));
     log_ok(&app->log, "initialized vulkan");
     log_up(&app->log);
     return 0;
@@ -406,6 +507,10 @@ error:
 int app_free(App *app) { /*{{{*/
     assert_arg(app);
     log_down(&app->log, "clean up");
+    if(app->swap_chain) {
+        log_info(&app->log, "destroy swapchain");
+        vkDestroySwapchainKHR(app->device, app->swap_chain, 0);
+    }
     if(app->surface) {
         log_info(&app->log, "destroy surface");
         vkDestroySurfaceKHR(app->instance, app->surface, 0);
@@ -425,6 +530,7 @@ int app_free(App *app) { /*{{{*/
     glfwDestroyWindow(app->window);
     glfwTerminate();
     vVkPhysicalDevice_free(&app->physical.available);
+    vVkImage_free(&app->swap_chain_images);
     vcs_free(&app->required_extensions);
     log_ok(&app->log, "cleaned up");
     log_up(&app->log);

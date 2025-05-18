@@ -6,6 +6,7 @@ vectors = {
         "VkExtensionProperties",
         "VkSurfaceFormatKHR",
         "VkPresentModeKHR",
+        "VkImage",
         }
 
 for vector in vectors:
