@@ -5,13 +5,6 @@
 VEC_IMPLEMENT(VCs, vcs, const char *, BY_VAL, BASE, 0);
 VEC_IMPLEMENT(VCs, vcs, const char *, BY_VAL, ERR);
 
-VEC_IMPLEMENT(VVkLayerProperties, vVkLayerProperties, VkLayerProperties, BY_VAL, BASE, 0);
-VEC_IMPLEMENT(VVkLayerProperties, vVkLayerProperties, VkLayerProperties, BY_VAL, ERR);
-VEC_IMPLEMENT(VVkPhysicalDevice, vVkPhysicalDevice, VkPhysicalDevice, BY_VAL, BASE, 0);
-VEC_IMPLEMENT(VVkPhysicalDevice, vVkPhysicalDevice, VkPhysicalDevice, BY_VAL, ERR);
-VEC_IMPLEMENT(VVkQueueFamilyProperties, vVkQueueFamilyProperties, VkQueueFamilyProperties, BY_VAL, BASE, 0);
-VEC_IMPLEMENT(VVkQueueFamilyProperties, vVkQueueFamilyProperties, VkQueueFamilyProperties, BY_VAL, ERR);
-
 #include <cglm/cglm.h>
 
 #define level_down(app, msg, ...)   do { \

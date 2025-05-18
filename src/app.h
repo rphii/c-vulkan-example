@@ -14,12 +14,9 @@ VEC_INCLUDE(VCs, vcs, const char *, BY_VAL, ERR);
         .last = sizeof((const char *[]){__VA_ARGS__})/sizeof(*(const char *[]){__VA_ARGS__}), \
     }
 
-VEC_INCLUDE(VVkLayerProperties, vVkLayerProperties, VkLayerProperties, BY_VAL, BASE);
-VEC_INCLUDE(VVkLayerProperties, vVkLayerProperties, VkLayerProperties, BY_VAL, ERR);
-VEC_INCLUDE(VVkPhysicalDevice, vVkPhysicalDevice, VkPhysicalDevice, BY_VAL, BASE);
-VEC_INCLUDE(VVkPhysicalDevice, vVkPhysicalDevice, VkPhysicalDevice, BY_VAL, ERR);
-VEC_INCLUDE(VVkQueueFamilyProperties, vVkQueueFamilyProperties, VkQueueFamilyProperties, BY_VAL, BASE);
-VEC_INCLUDE(VVkQueueFamilyProperties, vVkQueueFamilyProperties, VkQueueFamilyProperties, BY_VAL, ERR);
+#include "v/VVkLayerProperties.h"
+#include "v/VVkPhysicalDevice.h"
+#include "v/VVkQueueFamilyProperties.h"
 
 #include "queue_family.h"
 
