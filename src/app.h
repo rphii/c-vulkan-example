@@ -39,6 +39,7 @@ typedef struct App {
         VVkPhysicalDevice available;
     } physical;
     VkDevice device;
+    VkQueue graphics_queue;
 } App;
 
 int app_init(App *app);
