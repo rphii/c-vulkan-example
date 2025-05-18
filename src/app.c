@@ -475,6 +475,37 @@ error:
     goto clean;
 }
 
+int app_init_vulkan_create_image_views(App *app) {
+    assert_arg(app);
+    log_down(&app->log, "create %zu image views", vVkImage_length(app->swap_chain_images));
+    try(vVkImageView_resize(&app->swap_chain_image_views, vVkImage_length(app->swap_chain_images)));
+    for(size_t i = 0; i < vVkImageView_length(app->swap_chain_image_views); ++i) {
+        log_info(&app->log, "create image view #%zu", i);
+        VkImageViewCreateInfo create_info = {0};
+        VkImageView *image_view = vVkImageView_iter_at(&app->swap_chain_image_views, i);
+        create_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+        create_info.image = vVkImage_get_at(&app->swap_chain_images, i);
+        create_info.viewType = VK_IMAGE_VIEW_TYPE_2D;
+        create_info.format = app->swap_chain_image_format;
+        create_info.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
+        create_info.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
+        create_info.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
+        create_info.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
+        create_info.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        create_info.subresourceRange.baseMipLevel = 0;
+        create_info.subresourceRange.levelCount = 1;
+        create_info.subresourceRange.baseArrayLayer = 0;
+        create_info.subresourceRange.layerCount = 1;
+        try(vkCreateImageView(app->device, &create_info, 0, image_view));
+    }
+    log_ok(&app->log, "created image views");
+    log_up(&app->log);
+    return 0;
+error:
+    log_up(&app->log);
+    return -1;
+}
+
 int app_init_vulkan(App *app) { /*{{{*/
     assert_arg(app);
     log_down(&app->log, "initialize vulkan");
@@ -484,6 +515,7 @@ int app_init_vulkan(App *app) { /*{{{*/
     try(app_init_vulkan_pick_physical_device(app));
     try(app_init_vulkan_create_logical_device(app));
     try(app_init_vulkan_create_swap_chain(app));
+    try(app_init_vulkan_create_image_views(app));
     log_ok(&app->log, "initialized vulkan");
     log_up(&app->log);
     return 0;
@@ -507,6 +539,11 @@ error:
 int app_free(App *app) { /*{{{*/
     assert_arg(app);
     log_down(&app->log, "clean up");
+    for(size_t i = 0; i < vVkImageView_length(app->swap_chain_image_views); ++i) {
+        log_info(&app->log, "destroy image view #%zu", i);
+        VkImageView image_view = vVkImageView_get_at(&app->swap_chain_image_views, i);
+        vkDestroyImageView(app->device, image_view, 0);
+    }
     if(app->swap_chain) {
         log_info(&app->log, "destroy swapchain");
         vkDestroySwapchainKHR(app->device, app->swap_chain, 0);
@@ -531,6 +568,7 @@ int app_free(App *app) { /*{{{*/
     glfwTerminate();
     vVkPhysicalDevice_free(&app->physical.available);
     vVkImage_free(&app->swap_chain_images);
+    vVkImageView_free(&app->swap_chain_image_views);
     vcs_free(&app->required_extensions);
     log_ok(&app->log, "cleaned up");
     log_up(&app->log);

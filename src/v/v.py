@@ -7,6 +7,7 @@ vectors = {
         "VkSurfaceFormatKHR",
         "VkPresentModeKHR",
         "VkImage",
+        "VkImageView",
         }
 
 for vector in vectors:
