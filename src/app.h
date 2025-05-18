@@ -16,6 +16,12 @@ VEC_INCLUDE(VCs, vcs, const char *, BY_VAL, ERR);
 
 VEC_INCLUDE(VVkLayerProperties, vVkLayerProperties, VkLayerProperties, BY_VAL, BASE);
 VEC_INCLUDE(VVkLayerProperties, vVkLayerProperties, VkLayerProperties, BY_VAL, ERR);
+VEC_INCLUDE(VVkPhysicalDevice, vVkPhysicalDevice, VkPhysicalDevice, BY_VAL, BASE);
+VEC_INCLUDE(VVkPhysicalDevice, vVkPhysicalDevice, VkPhysicalDevice, BY_VAL, ERR);
+VEC_INCLUDE(VVkQueueFamilyProperties, vVkQueueFamilyProperties, VkQueueFamilyProperties, BY_VAL, BASE);
+VEC_INCLUDE(VVkQueueFamilyProperties, vVkQueueFamilyProperties, VkQueueFamilyProperties, BY_VAL, ERR);
+
+#include "queue_family.h"
 
 typedef struct App {
     const char *name;   // window name
@@ -29,6 +35,10 @@ typedef struct App {
         VkDebugUtilsMessengerEXT messenger;
     } validation;
     VkInstance instance;
+    struct {
+        VkPhysicalDevice active;
+        VVkPhysicalDevice available;
+    } physical;
 } App;
 
 int app_init(App *app);

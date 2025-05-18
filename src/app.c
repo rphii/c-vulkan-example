@@ -7,6 +7,10 @@ VEC_IMPLEMENT(VCs, vcs, const char *, BY_VAL, ERR);
 
 VEC_IMPLEMENT(VVkLayerProperties, vVkLayerProperties, VkLayerProperties, BY_VAL, BASE, 0);
 VEC_IMPLEMENT(VVkLayerProperties, vVkLayerProperties, VkLayerProperties, BY_VAL, ERR);
+VEC_IMPLEMENT(VVkPhysicalDevice, vVkPhysicalDevice, VkPhysicalDevice, BY_VAL, BASE, 0);
+VEC_IMPLEMENT(VVkPhysicalDevice, vVkPhysicalDevice, VkPhysicalDevice, BY_VAL, ERR);
+VEC_IMPLEMENT(VVkQueueFamilyProperties, vVkQueueFamilyProperties, VkQueueFamilyProperties, BY_VAL, BASE, 0);
+VEC_IMPLEMENT(VVkQueueFamilyProperties, vVkQueueFamilyProperties, VkQueueFamilyProperties, BY_VAL, ERR);
 
 #include <cglm/cglm.h>
 
@@ -31,7 +35,7 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback( /*{{{*/
     return VK_FALSE;
 } /*}}}*/
 
-void populate_debug_messenger_create_info(VkDebugUtilsMessengerCreateInfoEXT *create_info) {
+void populate_debug_messenger_create_info(VkDebugUtilsMessengerCreateInfoEXT *create_info) { /*{{{*/
     assert_arg(create_info);
     memset(create_info, 0, sizeof(*create_info));
     create_info->sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
@@ -43,8 +47,7 @@ void populate_debug_messenger_create_info(VkDebugUtilsMessengerCreateInfoEXT *cr
         VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
     create_info->pfnUserCallback = debug_callback;
     create_info->pUserData = 0; // optional
-}
-
+} /*}}}*/
 
 int app_init_window(App *app) { /*{{{*/
     assert_arg(app);
@@ -152,16 +155,16 @@ error:
     return -1;
 } /*}}}*/
 
-VkResult CreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT *pCreateInfo, const VkAllocationCallbacks* pAllocator, VkDebugUtilsMessengerEXT* pDebugMessenger) {
+VkResult CreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT *pCreateInfo, const VkAllocationCallbacks* pAllocator, VkDebugUtilsMessengerEXT* pDebugMessenger) { /*{{{*/
     PFN_vkCreateDebugUtilsMessengerEXT func = (PFN_vkCreateDebugUtilsMessengerEXT)
         vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT");
     if(!func) THROW("could not find function");
     return func(instance, pCreateInfo, pAllocator, pDebugMessenger);
 error:
     return -1;
-}
+} /*}}}*/
 
-VkResult DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT debugMessenger, const VkAllocationCallbacks *pAllocator) {
+VkResult DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT debugMessenger, const VkAllocationCallbacks *pAllocator) { /*{{{*/
     PFN_vkDestroyDebugUtilsMessengerEXT func = (PFN_vkDestroyDebugUtilsMessengerEXT )
         vkGetInstanceProcAddr(instance, "vkDestroyDebugUtilsMessengerEXT");
     if(!func) THROW("could not find function");
@@ -169,9 +172,9 @@ VkResult DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessenge
     return 0;
 error:
     return -1;
-}
+} /*}}}*/
 
-int app_init_vulkan_setup_debug_messenger(App *app) {
+int app_init_vulkan_setup_debug_messenger(App *app) { /*{{{*/
     assert_arg(app);
     level_down(app);
     if(!app->validation.enable) goto done;
@@ -187,13 +190,99 @@ done:
 error:
     level_up(app);
     return -1;
+} /*}}}*/
+
+int app_init_vulkan_refresh_physical_devices(App *app) { /*{{{*/
+    assert_arg(app);
+    level_down(app);
+    level_log(app, "refresh available physical devices");
+
+    uint32_t device_count = 0;
+    vkEnumeratePhysicalDevices(app->instance, &device_count, 0);
+    if(!device_count) {
+        THROW("failed to find GPUs with vulkan support!");
+    }
+    try(vVkPhysicalDevice_resize(&app->physical.available, device_count));
+    vkEnumeratePhysicalDevices(app->instance, &device_count, vVkPhysicalDevice_iter_begin(app->physical.available));
+    for(size_t i = 0; i < vVkPhysicalDevice_length(app->physical.available); ++i) {
+        VkPhysicalDevice device = vVkPhysicalDevice_get_at(&app->physical.available, i);
+        VkPhysicalDeviceProperties device_properties;
+        vkGetPhysicalDeviceProperties(device, &device_properties);
+        VkPhysicalDeviceFeatures device_features;
+        vkGetPhysicalDeviceFeatures(device, &device_features);
+        level_log(app, "found '%s'", device_properties.deviceName);
+    }
+
+    level_ok(app, "refreshed available physical devices");
+    level_up(app);
+    return 0;
+error:
+    level_up(app);
+    return -1;
+} /*}}}*/
+
+int find_queue_families(VkPhysicalDevice device, QueueFamilyIndices *indices) {
+    assert_arg(indices);
+    int err = 0;
+    uint32_t queue_family_count = 0;
+    vkGetPhysicalDeviceQueueFamilyProperties(device, &queue_family_count, 0);
+    VVkQueueFamilyProperties queue_families = {0};
+    try(vVkQueueFamilyProperties_resize(&queue_families, queue_family_count));
+    vkGetPhysicalDeviceQueueFamilyProperties(device, &queue_family_count, queue_families.items);
+    for(size_t i = 0; i < vVkQueueFamilyProperties_length(queue_families); ++i) {
+        VkQueueFamilyProperties queue_family = vVkQueueFamilyProperties_get_at(&queue_families, i);
+        if(queue_family.queueFlags & VK_QUEUE_GRAPHICS_BIT) {
+            optional_u32_set(&indices->graphics_family, i);
+        }
+    }
+clean:
+    vVkQueueFamilyProperties_free(&queue_families);
+    return err;
+error:
+    queue_family_indices_clear(indices);
+    err = -1;
+    goto clean;
 }
+
+bool is_device_suitable(VkPhysicalDevice device) {
+    QueueFamilyIndices indices = {0};
+    try(find_queue_families(device, &indices));
+clean:
+    return queue_family_indices_is_complete(indices);
+error:
+    goto clean;
+}
+
+int app_init_vulkan_pick_physical_device(App *app) { /*{{{*/
+    assert_arg(app);
+    level_down(app);
+    level_log(app, "pick physical device");
+    try(app_init_vulkan_refresh_physical_devices(app));
+    for(size_t i = 0; i < vVkPhysicalDevice_length(app->physical.available); ++i) {
+        VkPhysicalDevice device = vVkPhysicalDevice_get_at(&app->physical.available, i);
+        if(is_device_suitable(device)) {
+            app->physical.active = device; // TODO actually pick a suitable physical device
+            level_log(app, "found suitable device");
+            break;
+        }
+    }
+    if(!app->physical.active) {
+        THROW("no suitable device found");
+    }
+    level_ok(app, "picked physical device");
+    level_up(app);
+    return 0;
+error:
+    level_up(app);
+    return -1;
+} /*}}}*/
 
 int app_init_vulkan(App *app) { /*{{{*/
     assert_arg(app);
     level_log(app, "initialize vulkan");
     try(app_init_vulkan_create_instance(app));
     try(app_init_vulkan_setup_debug_messenger(app));
+    try(app_init_vulkan_pick_physical_device(app));
     level_ok(app, "initialized vulkan");
     return 0;
 error:
@@ -220,6 +309,7 @@ int app_free(App *app) { /*{{{*/
     if(app->instance) {
         vkDestroyInstance(app->instance, 0);
     }
+    vVkPhysicalDevice_free(&app->physical.available);
     vcs_free(&app->required_extensions);
     glfwDestroyWindow(app->window);
     glfwTerminate();
