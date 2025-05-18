@@ -5,4 +5,5 @@
 *.ninja_log
 src/build
 src/c-vulkan
+*.pyre
 
