@@ -72,6 +72,7 @@ typedef struct App {
     VVkSemaphore render_finished_semaphore;
     VVkFence in_flight_scene;
     uint32_t current_frame;
+    bool framebuffer_resized;
 } App;
 
 int app_init(App *app);
