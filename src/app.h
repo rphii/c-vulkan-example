@@ -25,6 +25,7 @@ VEC_INCLUDE(VCs, vcs, const char *, BY_VAL, ERR);
 #include "v/VVkExtensionProperties.h"
 #include "v/VVkImage.h"
 #include "v/VVkImageView.h"
+#include "v/VVkFramebuffer.h"
 
 #include "swap_chain_support.h"
 #include "queue_family.h"
@@ -60,6 +61,7 @@ typedef struct App {
     VkRenderPass render_pass;
     VkPipelineLayout pipeline_layout;
     VkPipeline graphics_pipeline;
+    VVkFramebuffer swap_chain_framebuffers;
 } App;
 
 int app_init(App *app);

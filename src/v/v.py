@@ -8,6 +8,7 @@ vectors = {
         "VkPresentModeKHR",
         "VkImage",
         "VkImageView",
+        "VkFramebuffer",
         }
 
 for vector in vectors:
