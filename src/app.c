@@ -518,6 +518,44 @@ error:
     return -1;
 }
 
+int app_init_vulkan_create_render_pass(App *app) {
+    assert_arg(app);
+    log_down(&app->log, "create render pass");
+    VkAttachmentDescription color_attachment = {
+        .format = app->swap_chain_image_format,
+        .samples = VK_SAMPLE_COUNT_1_BIT,
+        .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+        .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+        .stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+        .stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+        .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+        .finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+    };
+    VkAttachmentReference color_attachment_ref = {
+        .attachment = 0,
+        .layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+    };
+    VkSubpassDescription subpass = {
+        .pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS,
+        .colorAttachmentCount = 1,
+        .pColorAttachments = &color_attachment_ref,
+    };
+    VkRenderPassCreateInfo render_pass_info = {
+        .sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,
+        .attachmentCount = 1,
+        .pAttachments = &color_attachment,
+        .subpassCount = 1,
+        .pSubpasses = &subpass,
+    };
+    try(vkCreateRenderPass(app->device, &render_pass_info, 0, &app->render_pass));
+    log_down(&app->log, "created render pass");
+    log_up(&app->log);
+    return 0;
+error:
+    log_up(&app->log);
+    return -1;
+}
+
 #include "shaders/blob.h"
 
 int app_init_vulkan_create_graphics_pipeline(App *app) {
@@ -655,6 +693,7 @@ int app_init_vulkan(App *app) { /*{{{*/
     try(app_init_vulkan_create_logical_device(app));
     try(app_init_vulkan_create_swap_chain(app));
     try(app_init_vulkan_create_image_views(app));
+    try(app_init_vulkan_create_render_pass(app));
     try(app_init_vulkan_create_graphics_pipeline(app));
     log_ok(&app->log, "initialized vulkan");
     log_up(&app->log);
@@ -682,6 +721,10 @@ int app_free(App *app) { /*{{{*/
     if(app->pipeline_layout) {
         log_info(&app->log, "destroy pipeline layout");
         vkDestroyPipelineLayout(app->device, app->pipeline_layout, 0);
+    }
+    if(app->render_pass) {
+        log_info(&app->log, "destroy render pass");
+        vkDestroyRenderPass(app->device, app->render_pass, 0);
     }
     for(size_t i = 0; i < vVkImageView_length(app->swap_chain_image_views); ++i) {
         log_info(&app->log, "destroy image view #%zu", i);
