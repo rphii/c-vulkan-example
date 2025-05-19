@@ -62,6 +62,7 @@ typedef struct App {
     VkPipelineLayout pipeline_layout;
     VkPipeline graphics_pipeline;
     VVkFramebuffer swap_chain_framebuffers;
+    VkCommandPool command_pool;
 } App;
 
 int app_init(App *app);

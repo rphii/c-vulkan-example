@@ -733,6 +733,23 @@ error:
     return -2;
 }
 
+int app_init_vulkan_create_command_pool(App *app) {
+    assert_arg(app);
+    log_down(&app->log, "create command pool");
+    VkCommandPoolCreateInfo pool_info = {
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
+        .flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
+        .queueFamilyIndex = app->physical.indices.graphics_family.value,
+    };
+    try(vkCreateCommandPool(app->device, &pool_info, 0, &app->command_pool));
+    log_ok(&app->log, "created command pool");
+    log_up(&app->log);
+    return 0;
+error:
+    log_up(&app->log);
+    return -1;
+}
+
 int app_init_vulkan(App *app) { /*{{{*/
     assert_arg(app);
     log_down(&app->log, "initialize vulkan");
@@ -746,6 +763,7 @@ int app_init_vulkan(App *app) { /*{{{*/
     try(app_init_vulkan_create_render_pass(app));
     try(app_init_vulkan_create_graphics_pipeline(app));
     try(app_init_vulkan_create_framebuffers(app));
+    try(app_init_vulkan_create_command_pool(app));
     log_ok(&app->log, "initialized vulkan");
     log_up(&app->log);
     return 0;
@@ -769,6 +787,10 @@ error:
 int app_free(App *app) { /*{{{*/
     assert_arg(app);
     log_down(&app->log, "clean up");
+    if(app->command_pool) {
+        log_info(&app->log, "destroy command pool");
+        vkDestroyCommandPool(app->device, app->command_pool, 0);
+    }
     for(size_t i = 0; i < vVkFramebuffer_length(app->swap_chain_framebuffers); ++i) {
         log_info(&app->log, "destroy frame buffer #%zu", i);
         VkFramebuffer framebuffer = vVkFramebuffer_get_at(&app->swap_chain_framebuffers, i);
