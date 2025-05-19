@@ -17,6 +17,7 @@ void log_t_update(Log *log) {
 
 void log_up(Log *log) {
     assert_arg(log);
+    if(!log->enable_output) return;
     log_t_update(log);
     log->level -= 2;
 }

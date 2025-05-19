@@ -76,7 +76,7 @@ typedef struct App {
 } App;
 
 int app_init(App *app);
-int app_free(App *app);
+void app_free(App *app);
 int app_render(App *app);
 
 #define APP_H
