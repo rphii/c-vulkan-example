@@ -35,6 +35,13 @@ static void framebuffer_resize_callback(GLFWwindow *window, int width, int heigh
     app->framebuffer_resized = true;
 }
 
+void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods)
+{
+    if (key == GLFW_KEY_Q && action == GLFW_PRESS) {
+        glfwSetWindowShouldClose(window, GLFW_TRUE);
+    }
+}
+
 int app_init_window(App *app) { /*{{{*/
     assert_arg(app);
     log_down(&app->log, "initialize glfw");
@@ -43,6 +50,7 @@ int app_init_window(App *app) { /*{{{*/
     app->window = glfwCreateWindow(APP_WIDTH, APP_HEIGHT, app->name, 0, 0);
     glfwSetWindowUserPointer(app->window, app);
     glfwSetFramebufferSizeCallback(app->window, framebuffer_resize_callback);
+    glfwSetKeyCallback(app->window, key_callback);
     log_ok(&app->log, "initialized glfw");
     log_up(&app->log);
     return (!app->window);
@@ -925,7 +933,10 @@ error:
     return -1;
 } /*}}}*/
 
-int app_free(App *app) { /*{{{*/
+void app_free(App *app) { /*{{{*/
+    if(app->device) {
+        vkDeviceWaitIdle(app->device);
+    }
     log_output(&app->log, true);
     assert_arg(app);
     log_down(&app->log, "clean up");
@@ -986,7 +997,6 @@ int app_free(App *app) { /*{{{*/
     vcs_free(&app->required_extensions);
     log_ok(&app->log, "cleaned up");
     log_up(&app->log);
-    return 0;
 } /*}}}*/
 
 int app_render(App *app) {
