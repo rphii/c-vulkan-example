@@ -875,6 +875,7 @@ void app_free_swap_chain(App *app) {
         log_info(&app->log, "destroy swapchain");
         vkDestroySwapchainKHR(app->device, app->swap_chain, 0);
     }
+    vVkFramebuffer_free(&app->swap_chain_framebuffers);
 }
 
 int app_init_vulkan_recreate_swap_chain(App *app) {
