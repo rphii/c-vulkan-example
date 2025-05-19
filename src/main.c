@@ -22,9 +22,10 @@ int main() {
     };
 
     try(app_init(&app));
-#if 0
+#if 1
     while(!glfwWindowShouldClose(app.window)) {
         glfwPollEvents();
+        app_render(&app);
     }
 #endif
 
