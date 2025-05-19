@@ -703,6 +703,36 @@ error:
     goto clean;
 }
 
+int app_init_vulkan_create_framebuffers(App *app) {
+    assert_arg(app);
+    log_down(&app->log, "create %zu framebuffer", vVkImageView_length(app->swap_chain_image_views));
+    try(vVkFramebuffer_resize(&app->swap_chain_framebuffers, vVkImageView_length(app->swap_chain_image_views)));
+    for(size_t i = 0; i < vVkImageView_length(app->swap_chain_image_views); ++i) {
+        log_info(&app->log, "create framebuffer #%zu", i);
+        VkImageView *image_view = vVkImageView_iter_at(&app->swap_chain_image_views, i);
+        VkFramebuffer *frame_buffer = vVkFramebuffer_iter_at(&app->swap_chain_framebuffers, i);
+        VkImageView attachments[] = {
+            *image_view,
+        };
+        VkFramebufferCreateInfo framebuffer_info = {
+            .sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
+            .renderPass = app->render_pass,
+            .attachmentCount = 1,
+            .pAttachments = attachments,
+            .width = app->swap_chain_extent.width,
+            .height = app->swap_chain_extent.height,
+            .layers = 1,
+        };
+        try(vkCreateFramebuffer(app->device, &framebuffer_info, 0, frame_buffer));
+    }
+    log_ok(&app->log, "created framebuffer");
+    log_up(&app->log);
+    return 0;
+error:
+    log_up(&app->log);
+    return -2;
+}
+
 int app_init_vulkan(App *app) { /*{{{*/
     assert_arg(app);
     log_down(&app->log, "initialize vulkan");
@@ -715,6 +745,7 @@ int app_init_vulkan(App *app) { /*{{{*/
     try(app_init_vulkan_create_image_views(app));
     try(app_init_vulkan_create_render_pass(app));
     try(app_init_vulkan_create_graphics_pipeline(app));
+    try(app_init_vulkan_create_framebuffers(app));
     log_ok(&app->log, "initialized vulkan");
     log_up(&app->log);
     return 0;
@@ -738,6 +769,11 @@ error:
 int app_free(App *app) { /*{{{*/
     assert_arg(app);
     log_down(&app->log, "clean up");
+    for(size_t i = 0; i < vVkFramebuffer_length(app->swap_chain_framebuffers); ++i) {
+        log_info(&app->log, "destroy frame buffer #%zu", i);
+        VkFramebuffer framebuffer = vVkFramebuffer_get_at(&app->swap_chain_framebuffers, i);
+        vkDestroyFramebuffer(app->device, framebuffer, 0);
+    }
     if(app->graphics_pipeline) {
         log_info(&app->log, "destroy graphics pipeline");
         vkDestroyPipeline(app->device, app->graphics_pipeline, 0);

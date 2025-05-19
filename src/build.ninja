@@ -38,14 +38,15 @@ build $bdir/log.o: cc $root/log.c
 build $bdir/swap_chain_support.o: cc $root/swap_chain_support.c
 
 build $bdir/v/VVkLayerProperties.o: cc $root/v/VVkLayerProperties.c
-build $bdir/v/VVkPresentModeKHR.o: cc $root/v/VVkPresentModeKHR.c
-build $bdir/v/VVkQueueFamilyProperties.o: cc $root/v/VVkQueueFamilyProperties.c
-build $bdir/v/VVkImageView.o: cc $root/v/VVkImageView.c
-build $bdir/v/VVkExtensionProperties.o: cc $root/v/VVkExtensionProperties.c
-build $bdir/v/VVkPhysicalDevice.o: cc $root/v/VVkPhysicalDevice.c
-build $bdir/v/VVkDeviceQueueCreateInfo.o: cc $root/v/VVkDeviceQueueCreateInfo.c
-build $bdir/v/VVkSurfaceFormatKHR.o: cc $root/v/VVkSurfaceFormatKHR.c
+build $bdir/v/VVkFramebuffer.o: cc $root/v/VVkFramebuffer.c
 build $bdir/v/VVkImage.o: cc $root/v/VVkImage.c
+build $bdir/v/VVkPhysicalDevice.o: cc $root/v/VVkPhysicalDevice.c
+build $bdir/v/VVkPresentModeKHR.o: cc $root/v/VVkPresentModeKHR.c
+build $bdir/v/VVkExtensionProperties.o: cc $root/v/VVkExtensionProperties.c
+build $bdir/v/VVkSurfaceFormatKHR.o: cc $root/v/VVkSurfaceFormatKHR.c
+build $bdir/v/VVkImageView.o: cc $root/v/VVkImageView.c
+build $bdir/v/VVkDeviceQueueCreateInfo.o: cc $root/v/VVkDeviceQueueCreateInfo.c
+build $bdir/v/VVkQueueFamilyProperties.o: cc $root/v/VVkQueueFamilyProperties.c
 
 
 
@@ -54,13 +55,14 @@ build c-vulkan: link $bdir/main.o $bdir/app.o $bdir/queue_family.o $bdir/optiona
     $bdir/log.o $bdir/swap_chain_support.o $root/shaders/blob.h $
     $
     $bdir/v/VVkLayerProperties.o $
-    $bdir/v/VVkPresentModeKHR.o $
-    $bdir/v/VVkQueueFamilyProperties.o $
-    $bdir/v/VVkImageView.o $
-    $bdir/v/VVkExtensionProperties.o $
-    $bdir/v/VVkPhysicalDevice.o $
-    $bdir/v/VVkDeviceQueueCreateInfo.o $
-    $bdir/v/VVkSurfaceFormatKHR.o $
+    $bdir/v/VVkFramebuffer.o $
     $bdir/v/VVkImage.o $
+    $bdir/v/VVkPhysicalDevice.o $
+    $bdir/v/VVkPresentModeKHR.o $
+    $bdir/v/VVkExtensionProperties.o $
+    $bdir/v/VVkSurfaceFormatKHR.o $
+    $bdir/v/VVkImageView.o $
+    $bdir/v/VVkDeviceQueueCreateInfo.o $
+    $bdir/v/VVkQueueFamilyProperties.o $
 
 
