@@ -57,6 +57,7 @@ typedef struct App {
     VkFormat swap_chain_image_format;
     VkExtent2D swap_chain_extent;
     VVkImageView swap_chain_image_views;
+    VkPipelineLayout pipeline_layout;
 } App;
 
 int app_init(App *app);

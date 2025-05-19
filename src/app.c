@@ -527,19 +527,116 @@ int app_init_vulkan_create_graphics_pipeline(App *app) {
     VkShaderModule vert_shader_module, frag_shader_module;
     try(create_shader_module(app->device, &vert_shader_module, build_shaders_vert_spv, build_shaders_vert_spv_len));
     try(create_shader_module(app->device, &frag_shader_module, build_shaders_frag_spv, build_shaders_frag_spv_len));
-    VkPipelineShaderStageCreateInfo vert_shader_stage_info = {0};
-    vert_shader_stage_info.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-    vert_shader_stage_info.stage = VK_SHADER_STAGE_VERTEX_BIT;
-    vert_shader_stage_info.module = vert_shader_module;
-    vert_shader_stage_info.pName = "main";
-    VkPipelineShaderStageCreateInfo frag_shader_stage_info = {0};
-    frag_shader_stage_info.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-    frag_shader_stage_info.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
-    frag_shader_stage_info.module = frag_shader_module;
-    frag_shader_stage_info.pName = "main";
+    VkPipelineShaderStageCreateInfo vert_shader_stage_info = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+        .stage = VK_SHADER_STAGE_VERTEX_BIT,
+        .module = vert_shader_module,
+        .pName = "main",
+    };
+    VkPipelineShaderStageCreateInfo frag_shader_stage_info = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+        .stage = VK_SHADER_STAGE_FRAGMENT_BIT,
+        .module = frag_shader_module,
+        .pName = "main",
+    };
+    VkPipelineShaderStageCreateInfo shader_stages[] = {vert_shader_stage_info, frag_shader_stage_info};
+    log_info(&app->log, "create findex function state");
+    VkDynamicState dynamic_states[] = {
+        VK_DYNAMIC_STATE_VIEWPORT,
+        VK_DYNAMIC_STATE_SCISSOR,
+    };
+    VkPipelineDynamicStateCreateInfo dynamic_state = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,
+        .dynamicStateCount = sizearray(dynamic_states),
+        .pDynamicStates = dynamic_states,
+    };
+    VkPipelineVertexInputStateCreateInfo vertex_input_info = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
+        .vertexBindingDescriptionCount = 0,
+        .pVertexBindingDescriptions = 0, // optional
+        .vertexAttributeDescriptionCount = 0,
+        .pVertexAttributeDescriptions = 0, // optional
+    };
+    VkPipelineInputAssemblyStateCreateInfo input_assembly = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
+        .topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
+        .primitiveRestartEnable = VK_FALSE,
+    };
+    VkViewport viewport = {
+        .x = 0.0f,
+        .y = 0.0f,
+        .width = (float)app->swap_chain_extent.width,
+        .height = (float)app->swap_chain_extent.height,
+        .minDepth = 0.0f,
+        .maxDepth = 1.0f,
+    };
+    VkRect2D scissor = {
+        .offset = {0, 0},
+        .extent = app->swap_chain_extent,
+    };
+    VkPipelineViewportStateCreateInfo viewport_state = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
+        .viewportCount = 1,
+        .pViewports = &viewport,
+        .scissorCount = 1,
+        .pScissors = &scissor,
+    };
+    VkPipelineRasterizationStateCreateInfo rasterizer = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
+        .depthClampEnable = VK_FALSE,
+        .rasterizerDiscardEnable = VK_FALSE,
+        .polygonMode = VK_POLYGON_MODE_FILL,
+        .lineWidth = 1.0f,
+        .cullMode = VK_CULL_MODE_BACK_BIT,
+        .frontFace = VK_FRONT_FACE_CLOCKWISE,
+        .depthBiasEnable = VK_FALSE,
+        .depthBiasConstantFactor = 0.0f, // optional
+        .depthBiasClamp = 0.0f, // optional
+        .depthBiasSlopeFactor = 0.0f, // optional
+    };
+    VkPipelineMultisampleStateCreateInfo multisampling = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
+        .sampleShadingEnable = VK_FALSE,
+        .rasterizationSamples = VK_SAMPLE_COUNT_1_BIT,
+        .minSampleShading = 1.0f, // optional
+        .pSampleMask = 0, // optional
+        .alphaToCoverageEnable = VK_FALSE, // optional
+        .alphaToOneEnable = VK_FALSE, // optional
+    };
+    VkPipelineColorBlendAttachmentState color_blend_atttachment = {
+        .colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_A_BIT,
+        .blendEnable = VK_FALSE,
+        // all optional below
+        .srcColorBlendFactor = VK_BLEND_FACTOR_ONE,
+        .dstColorBlendFactor = VK_BLEND_FACTOR_ZERO,
+        .colorBlendOp = VK_BLEND_OP_ADD,
+        .srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE,
+        .dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO,
+        .alphaBlendOp = VK_BLEND_OP_ADD,
+    };
+    VkPipelineColorBlendStateCreateInfo color_blending = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
+        .logicOpEnable = VK_FALSE,
+        .logicOp = VK_LOGIC_OP_COPY, // optional
+        .attachmentCount = 1,
+        .pAttachments = &color_blend_atttachment,
+        .blendConstants[0] = 0.0f, // optional
+        .blendConstants[1] = 0.0f, // optional
+        .blendConstants[2] = 0.0f, // optional
+        .blendConstants[3] = 0.0f, // optional
+    };
+    VkPipelineLayoutCreateInfo pipeline_layout_info = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
+        // optional below
+        .setLayoutCount = 0,
+        .pSetLayouts = 0,
+        .pushConstantRangeCount = 0,
+        .pPushConstantRanges = 0,
+    };
+    try(vkCreatePipelineLayout(app->device, &pipeline_layout_info, 0, &app->pipeline_layout));
+
     vkDestroyShaderModule(app->device, vert_shader_module, 0);
     vkDestroyShaderModule(app->device, frag_shader_module, 0);
-    VkPipelineShaderStageCreateInfo shader_stages[] = {vert_shader_stage_info, frag_shader_stage_info};
     log_ok(&app->log, "created graphics pipeline");
     log_up(&app->log);
     return 0;
@@ -582,6 +679,10 @@ error:
 int app_free(App *app) { /*{{{*/
     assert_arg(app);
     log_down(&app->log, "clean up");
+    if(app->pipeline_layout) {
+        log_info(&app->log, "destroy pipeline layout");
+        vkDestroyPipelineLayout(app->device, app->pipeline_layout, 0);
+    }
     for(size_t i = 0; i < vVkImageView_length(app->swap_chain_image_views); ++i) {
         log_info(&app->log, "destroy image view #%zu", i);
         VkImageView image_view = vVkImageView_get_at(&app->swap_chain_image_views, i);
