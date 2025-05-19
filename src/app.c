@@ -768,6 +768,44 @@ error:
     return -1;
 }
 
+int record_command_buffer(VkCommandBuffer command_buffer, VkFramebuffer framebuffer, VkRenderPass render_pass, VkExtent2D swap_chain_extent, VkPipeline graphics_pipeline, uint32_t image_index) {
+    VkCommandBufferBeginInfo begin_info = {
+        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+        .flags = 0, // optional
+        .pInheritanceInfo = 0, // optional
+    };
+    try(vkBeginCommandBuffer(command_buffer, &begin_info));
+    VkRenderPassBeginInfo render_pass_info = {
+        .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
+        .renderPass = render_pass,
+        .framebuffer = framebuffer,
+        .renderArea.offset = {0, 0},
+        .renderArea.extent = swap_chain_extent,
+    };
+    vkCmdBeginRenderPass(command_buffer, &render_pass_info, VK_SUBPASS_CONTENTS_INLINE);
+    vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphics_pipeline);
+    VkViewport viewport = {
+        .x = 0.0f,
+        .y = 0.0f,
+        .width  = (float)swap_chain_extent.width,
+        .height  = (float)swap_chain_extent.height,
+        .minDepth = 0.0f,
+        .maxDepth = 1.0f,
+    };
+    vkCmdSetViewport(command_buffer, 0, 1, &viewport);
+    VkRect2D scissor = {
+        .offset = {0, 0},
+        .extent = swap_chain_extent,
+    };
+    vkCmdSetScissor(command_buffer, 0, 1, &scissor);
+    vkCmdDraw(command_buffer, 3, 1, 0, 0);
+    vkCmdEndRenderPass(command_buffer);
+    try(vkEndCommandBuffer(command_buffer));
+    return 0;
+error:
+    return -1;
+}
+
 int app_init_vulkan(App *app) { /*{{{*/
     assert_arg(app);
     log_down(&app->log, "initialize vulkan");
