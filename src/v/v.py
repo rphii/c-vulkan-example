@@ -9,6 +9,9 @@ vectors = {
         "VkImage",
         "VkImageView",
         "VkFramebuffer",
+        "VkCommandBuffer",
+        "VkSemaphore",
+        "VkFence",
         }
 
 for vector in vectors:

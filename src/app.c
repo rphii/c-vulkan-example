@@ -760,16 +760,17 @@ error:
     return -1;
 }
 
-int app_init_vulkan_create_command_buffer(App *app) {
+int app_init_vulkan_create_command_buffers(App *app) {
     assert_arg(app);
     log_down(&app->log, "create command buffer");
+    try(vVkCommandBuffer_resize(&app->command_buffer, APP_MAX_FRAMES_IN_FLIGHT));
     VkCommandBufferAllocateInfo alloc_info = {
         .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
         .commandPool = app->command_pool,
         .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
-        .commandBufferCount = 1,
+        .commandBufferCount = APP_MAX_FRAMES_IN_FLIGHT,
     };
-    try(vkAllocateCommandBuffers(app->device, &alloc_info, &app->command_buffer));
+    try(vkAllocateCommandBuffers(app->device, &alloc_info, vVkCommandBuffer_iter_begin(app->command_buffer)));
     log_ok(&app->log, "created command buffer");
     log_up(&app->log);
     return 0;
@@ -822,6 +823,9 @@ error:
 int app_init_vulkan_create_sync_objects(App *app) {
     assert_arg(app);
     log_down(&app->log, "create sync objects");
+    try(vVkSemaphore_resize(&app->render_finished_semaphore, APP_MAX_FRAMES_IN_FLIGHT));
+    try(vVkSemaphore_resize(&app->image_available_semaphore, APP_MAX_FRAMES_IN_FLIGHT));
+    try(vVkFence_resize(&app->in_flight_scene, APP_MAX_FRAMES_IN_FLIGHT));
     VkSemaphoreCreateInfo semaphore_info = {
         .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
     };
@@ -829,9 +833,11 @@ int app_init_vulkan_create_sync_objects(App *app) {
         .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
         .flags = VK_FENCE_CREATE_SIGNALED_BIT,
     };
-    try(vkCreateSemaphore(app->device, &semaphore_info, 0, &app->image_available_semaphore));
-    try(vkCreateSemaphore(app->device, &semaphore_info, 0, &app->render_finished_semaphore));
-    try(vkCreateFence(app->device, &fence_info, 0, &app->in_flight_scene));
+    for(size_t i = 0; i < APP_MAX_FRAMES_IN_FLIGHT; ++i) {
+        try(vkCreateSemaphore(app->device, &semaphore_info, 0, vVkSemaphore_iter_at(&app->image_available_semaphore, i)));
+        try(vkCreateSemaphore(app->device, &semaphore_info, 0, vVkSemaphore_iter_at(&app->render_finished_semaphore, i)));
+        try(vkCreateFence(app->device, &fence_info, 0, vVkFence_iter_at(&app->in_flight_scene, i)));
+    }
     log_ok(&app->log, "created sync objects");
     log_up(&app->log);
     return 0;
@@ -854,7 +860,7 @@ int app_init_vulkan(App *app) { /*{{{*/
     try(app_init_vulkan_create_graphics_pipeline(app));
     try(app_init_vulkan_create_framebuffers(app));
     try(app_init_vulkan_create_command_pool(app));
-    try(app_init_vulkan_create_command_buffer(app));
+    try(app_init_vulkan_create_command_buffers(app));
     try(app_init_vulkan_create_sync_objects(app));
     log_ok(&app->log, "initialized vulkan");
     log_up(&app->log);
@@ -879,17 +885,17 @@ error:
 int app_free(App *app) { /*{{{*/
     assert_arg(app);
     log_down(&app->log, "clean up");
-    if(app->image_available_semaphore) {
-        log_ok(&app->log, "destroy a semaphore");
-        vkDestroySemaphore(app->device, app->image_available_semaphore, 0);
+    for(size_t i = 0; i < vVkSemaphore_length(app->image_available_semaphore); ++i) {
+        log_ok(&app->log, "destroy a semaphore available");
+        vkDestroySemaphore(app->device, vVkSemaphore_get_at(&app->image_available_semaphore, i), 0);
     }
-    if(app->render_finished_semaphore) {
-        log_ok(&app->log, "destroy a semaphore");
-        vkDestroySemaphore(app->device, app->render_finished_semaphore, 0);
+    for(size_t i = 0; i < vVkSemaphore_length(app->render_finished_semaphore); ++i) {
+        log_ok(&app->log, "destroy a semaphore render");
+        vkDestroySemaphore(app->device, vVkSemaphore_get_at(&app->render_finished_semaphore, i), 0);
     }
-    if(app->in_flight_scene) {
+    for(size_t i = 0; i < vVkFence_length(app->in_flight_scene); ++i) {
         log_ok(&app->log, "destroy a fence");
-        vkDestroyFence(app->device, app->in_flight_scene, 0);
+        vkDestroyFence(app->device, vVkFence_get_at(&app->in_flight_scene, i), 0);
     }
     if(app->command_pool) {
         log_info(&app->log, "destroy command pool");
@@ -942,6 +948,10 @@ int app_free(App *app) { /*{{{*/
     vVkPhysicalDevice_free(&app->physical.available);
     vVkImage_free(&app->swap_chain_images);
     vVkImageView_free(&app->swap_chain_image_views);
+    vVkCommandBuffer_free(&app->command_buffer);
+    vVkSemaphore_free(&app->render_finished_semaphore);
+    vVkSemaphore_free(&app->image_available_semaphore);
+    vVkFence_free(&app->in_flight_scene);
     vcs_free(&app->required_extensions);
     log_ok(&app->log, "cleaned up");
     log_up(&app->log);
@@ -950,17 +960,21 @@ int app_free(App *app) { /*{{{*/
 
 int app_render(App *app) {
     assert_arg(app);
-    vkWaitForFences(app->device, 1, &app->in_flight_scene, VK_TRUE, UINT64_MAX);
-    vkResetFences(app->device, 1, &app->in_flight_scene);
+    VkSemaphore image_available_semaphore = vVkSemaphore_get_at(&app->image_available_semaphore, app->current_frame);
+    VkSemaphore render_finished_semaphore = vVkSemaphore_get_at(&app->image_available_semaphore, app->current_frame);
+    VkFence in_flight_scene = vVkFence_get_at(&app->in_flight_scene, app->current_frame);
+    VkCommandBuffer command_buffer = vVkCommandBuffer_get_at(&app->command_buffer, app->current_frame);
+    vkWaitForFences(app->device, 1, &in_flight_scene, VK_TRUE, UINT64_MAX);
+    vkResetFences(app->device, 1, &in_flight_scene);
     uint32_t image_index;
-    vkAcquireNextImageKHR(app->device, app->swap_chain, UINT64_MAX, app->image_available_semaphore, VK_NULL_HANDLE, &image_index);
-    vkResetCommandBuffer(app->command_buffer, 0);
-    try(record_command_buffer(app->command_buffer, app->render_pass, app->swap_chain_extent, app->graphics_pipeline, &app->swap_chain_framebuffers, image_index));
+    vkAcquireNextImageKHR(app->device, app->swap_chain, UINT64_MAX, image_available_semaphore, VK_NULL_HANDLE, &image_index);
+    vkResetCommandBuffer(command_buffer, 0);
+    try(record_command_buffer(command_buffer, app->render_pass, app->swap_chain_extent, app->graphics_pipeline, &app->swap_chain_framebuffers, image_index));
     VkSemaphore wait_semaphores[] = {
-        app->image_available_semaphore,
+        image_available_semaphore,
     };
     VkSemaphore signal_semaphores[] = {
-        app->render_finished_semaphore,
+        render_finished_semaphore,
     };
     VkPipelineStageFlags wait_stages[] = {
         VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
@@ -971,11 +985,11 @@ int app_render(App *app) {
         .pWaitSemaphores = wait_semaphores,
         .pWaitDstStageMask = wait_stages,
         .commandBufferCount = 1,
-        .pCommandBuffers = &app->command_buffer,
+        .pCommandBuffers = &command_buffer,
         .signalSemaphoreCount = 1,
         .pSignalSemaphores = signal_semaphores,
     };
-    try(vkQueueSubmit(app->graphics_queue, 1, &submit_info, app->in_flight_scene));
+    try(vkQueueSubmit(app->graphics_queue, 1, &submit_info, in_flight_scene));
     VkSwapchainKHR swapchains[] = {
         app->swap_chain,
     };
@@ -989,6 +1003,7 @@ int app_render(App *app) {
         .pResults = 0, // optional
     };
     vkQueuePresentKHR(app->present_queue, &present_info);
+    app->current_frame = (app->current_frame + 1) % APP_MAX_FRAMES_IN_FLIGHT;
     return 0;
 error:
     return -1;
