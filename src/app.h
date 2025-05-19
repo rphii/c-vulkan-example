@@ -64,10 +64,14 @@ typedef struct App {
     VVkFramebuffer swap_chain_framebuffers;
     VkCommandPool command_pool;
     VkCommandBuffer command_buffer;
+    VkSemaphore image_available_semaphore;
+    VkSemaphore render_finished_semaphore;
+    VkFence in_flight_scene;
 } App;
 
 int app_init(App *app);
 int app_free(App *app);
+int app_render(App *app);
 
 #define APP_H
 #endif

@@ -540,12 +540,22 @@ int app_init_vulkan_create_render_pass(App *app) {
         .colorAttachmentCount = 1,
         .pColorAttachments = &color_attachment_ref,
     };
+    VkSubpassDependency dependency = {
+        .srcSubpass = VK_SUBPASS_EXTERNAL,
+        .dstSubpass = 0,
+        .srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+        .srcAccessMask = 0,
+        .dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+        .dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+    };
     VkRenderPassCreateInfo render_pass_info = {
         .sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,
         .attachmentCount = 1,
         .pAttachments = &color_attachment,
         .subpassCount = 1,
         .pSubpasses = &subpass,
+        .dependencyCount = 1,
+        .pDependencies = &dependency,
     };
     try(vkCreateRenderPass(app->device, &render_pass_info, 0, &app->render_pass));
     log_ok(&app->log, "created render pass");
@@ -643,7 +653,7 @@ int app_init_vulkan_create_graphics_pipeline(App *app) {
         .alphaToOneEnable = VK_FALSE, // optional
     };
     VkPipelineColorBlendAttachmentState color_blend_atttachment = {
-        .colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_A_BIT,
+        .colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT,
         .blendEnable = VK_FALSE,
         // all optional below
         .srcColorBlendFactor = VK_BLEND_FACTOR_ONE,
@@ -768,19 +778,22 @@ error:
     return -1;
 }
 
-int record_command_buffer(VkCommandBuffer command_buffer, VkFramebuffer framebuffer, VkRenderPass render_pass, VkExtent2D swap_chain_extent, VkPipeline graphics_pipeline, uint32_t image_index) {
+int record_command_buffer(VkCommandBuffer command_buffer, VkRenderPass render_pass, VkExtent2D swap_chain_extent, VkPipeline graphics_pipeline, VVkFramebuffer *framebuffers, uint32_t image_index) {
     VkCommandBufferBeginInfo begin_info = {
         .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
         .flags = 0, // optional
         .pInheritanceInfo = 0, // optional
     };
     try(vkBeginCommandBuffer(command_buffer, &begin_info));
+    VkClearValue clear_color = {{{ 0.0f, 0.0f, 0.0f, 1.0f }}};
     VkRenderPassBeginInfo render_pass_info = {
         .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
         .renderPass = render_pass,
-        .framebuffer = framebuffer,
+        .framebuffer = vVkFramebuffer_get_at(framebuffers, image_index),
         .renderArea.offset = {0, 0},
         .renderArea.extent = swap_chain_extent,
+        .clearValueCount = 1,
+        .pClearValues = &clear_color,
     };
     vkCmdBeginRenderPass(command_buffer, &render_pass_info, VK_SUBPASS_CONTENTS_INLINE);
     vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphics_pipeline);
@@ -806,6 +819,27 @@ error:
     return -1;
 }
 
+int app_init_vulkan_create_sync_objects(App *app) {
+    assert_arg(app);
+    log_down(&app->log, "create sync objects");
+    VkSemaphoreCreateInfo semaphore_info = {
+        .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
+    };
+    VkFenceCreateInfo fence_info = {
+        .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
+        .flags = VK_FENCE_CREATE_SIGNALED_BIT,
+    };
+    try(vkCreateSemaphore(app->device, &semaphore_info, 0, &app->image_available_semaphore));
+    try(vkCreateSemaphore(app->device, &semaphore_info, 0, &app->render_finished_semaphore));
+    try(vkCreateFence(app->device, &fence_info, 0, &app->in_flight_scene));
+    log_ok(&app->log, "created sync objects");
+    log_up(&app->log);
+    return 0;
+error:
+    log_up(&app->log);
+    return -1;
+}
+
 int app_init_vulkan(App *app) { /*{{{*/
     assert_arg(app);
     log_down(&app->log, "initialize vulkan");
@@ -821,6 +855,7 @@ int app_init_vulkan(App *app) { /*{{{*/
     try(app_init_vulkan_create_framebuffers(app));
     try(app_init_vulkan_create_command_pool(app));
     try(app_init_vulkan_create_command_buffer(app));
+    try(app_init_vulkan_create_sync_objects(app));
     log_ok(&app->log, "initialized vulkan");
     log_up(&app->log);
     return 0;
@@ -844,6 +879,18 @@ error:
 int app_free(App *app) { /*{{{*/
     assert_arg(app);
     log_down(&app->log, "clean up");
+    if(app->image_available_semaphore) {
+        log_ok(&app->log, "destroy a semaphore");
+        vkDestroySemaphore(app->device, app->image_available_semaphore, 0);
+    }
+    if(app->render_finished_semaphore) {
+        log_ok(&app->log, "destroy a semaphore");
+        vkDestroySemaphore(app->device, app->render_finished_semaphore, 0);
+    }
+    if(app->in_flight_scene) {
+        log_ok(&app->log, "destroy a fence");
+        vkDestroyFence(app->device, app->in_flight_scene, 0);
+    }
     if(app->command_pool) {
         log_info(&app->log, "destroy command pool");
         vkDestroyCommandPool(app->device, app->command_pool, 0);
@@ -901,4 +948,49 @@ int app_free(App *app) { /*{{{*/
     return 0;
 } /*}}}*/
 
+int app_render(App *app) {
+    assert_arg(app);
+    vkWaitForFences(app->device, 1, &app->in_flight_scene, VK_TRUE, UINT64_MAX);
+    vkResetFences(app->device, 1, &app->in_flight_scene);
+    uint32_t image_index;
+    vkAcquireNextImageKHR(app->device, app->swap_chain, UINT64_MAX, app->image_available_semaphore, VK_NULL_HANDLE, &image_index);
+    vkResetCommandBuffer(app->command_buffer, 0);
+    try(record_command_buffer(app->command_buffer, app->render_pass, app->swap_chain_extent, app->graphics_pipeline, &app->swap_chain_framebuffers, image_index));
+    VkSemaphore wait_semaphores[] = {
+        app->image_available_semaphore,
+    };
+    VkSemaphore signal_semaphores[] = {
+        app->render_finished_semaphore,
+    };
+    VkPipelineStageFlags wait_stages[] = {
+        VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+    };
+    VkSubmitInfo submit_info = {
+        .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+        .waitSemaphoreCount = 1,
+        .pWaitSemaphores = wait_semaphores,
+        .pWaitDstStageMask = wait_stages,
+        .commandBufferCount = 1,
+        .pCommandBuffers = &app->command_buffer,
+        .signalSemaphoreCount = 1,
+        .pSignalSemaphores = signal_semaphores,
+    };
+    try(vkQueueSubmit(app->graphics_queue, 1, &submit_info, app->in_flight_scene));
+    VkSwapchainKHR swapchains[] = {
+        app->swap_chain,
+    };
+    VkPresentInfoKHR present_info = {
+        .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
+        .waitSemaphoreCount = 1,
+        .pWaitSemaphores = signal_semaphores,
+        .swapchainCount = 1,
+        .pSwapchains = swapchains,
+        .pImageIndices = &image_index,
+        .pResults = 0, // optional
+    };
+    vkQueuePresentKHR(app->present_queue, &present_info);
+    return 0;
+error:
+    return -1;
+}
 
