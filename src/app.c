@@ -602,7 +602,7 @@ int app_init_vulkan_create_graphics_pipeline(App *app) {
         .pName = "main",
     };
     VkPipelineShaderStageCreateInfo shader_stages[] = {vert_shader_stage_info, frag_shader_stage_info};
-    log_info(&app->log, "create findex function state");
+    log_info(&app->log, "create fixed function state");
     VkDynamicState dynamic_states[] = {
         VK_DYNAMIC_STATE_VIEWPORT,
         VK_DYNAMIC_STATE_SCISSOR,
