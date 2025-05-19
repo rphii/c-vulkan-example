@@ -25,7 +25,7 @@ int main() {
 #if 1
     while(!glfwWindowShouldClose(app.window)) {
         glfwPollEvents();
-        app_render(&app);
+        try(app_render(&app));
     }
 #endif
 

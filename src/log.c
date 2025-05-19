@@ -1,8 +1,13 @@
 #include "log.h"
 
+void log_output(Log *log, bool enable) {
+    log->enable_output = enable;
+}
+
 void log_start(Log *log) {
     clock_gettime(CLOCK_REALTIME, &log->t0);
     log->level = -2;
+    log_output(log, true);
 }
 
 void log_t_update(Log *log) {
