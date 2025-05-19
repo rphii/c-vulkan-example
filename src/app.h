@@ -2,6 +2,7 @@
 
 #define APP_WIDTH   800
 #define APP_HEIGHT  600
+#define APP_MAX_FRAMES_IN_FLIGHT    2
 
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
@@ -26,6 +27,9 @@ VEC_INCLUDE(VCs, vcs, const char *, BY_VAL, ERR);
 #include "v/VVkImage.h"
 #include "v/VVkImageView.h"
 #include "v/VVkFramebuffer.h"
+#include "v/VVkCommandBuffer.h"
+#include "v/VVkSemaphore.h"
+#include "v/VVkFence.h"
 
 #include "swap_chain_support.h"
 #include "queue_family.h"
@@ -63,10 +67,11 @@ typedef struct App {
     VkPipeline graphics_pipeline;
     VVkFramebuffer swap_chain_framebuffers;
     VkCommandPool command_pool;
-    VkCommandBuffer command_buffer;
-    VkSemaphore image_available_semaphore;
-    VkSemaphore render_finished_semaphore;
-    VkFence in_flight_scene;
+    VVkCommandBuffer command_buffer;
+    VVkSemaphore image_available_semaphore;
+    VVkSemaphore render_finished_semaphore;
+    VVkFence in_flight_scene;
+    uint32_t current_frame;
 } App;
 
 int app_init(App *app);
