@@ -2,9 +2,11 @@ root = .
 bdir = build
 
 cc = gcc
-optimize = -O2 -march=native -flto=16 -ffat-lto-objects -fgraphite-identity
+optimize = -O2 -march=native -DNDEBUG
+#-flto=auto -ffat-lto-objects -fgraphite-identity 
 #-DNDEBUG
-common = -fsanitize=address -ggdb3 -rdynamic
+common = 
+#-fsanitize=address -ggdb3 -rdynamic
 
 cflags = -Wall -Wextra -Wimplicit -Wfatal-errors $
          -Wno-unused-parameter $
@@ -12,7 +14,7 @@ cflags = -Wall -Wextra -Wimplicit -Wfatal-errors $
 ldflags = -lglfw -lvulkan -lrphiic $common
 
 rule cc
-    command = $cc -MMD -MF $out.d $cflags -c $in -o $out # -MT $out
+    command = $cc -MMD -MF $out.d $cflags -c $in -o $out
     depfile = $out.d
 
 rule link
@@ -47,8 +49,9 @@ build $bdir/v/VVkImage.o: cc $root/v/VVkImage.c
 
 
 
+
 build c-vulkan: link $bdir/main.o $bdir/app.o $bdir/queue_family.o $bdir/optional.o $
-    $bdir/log.o $bdir/swap_chain_support.o $
+    $bdir/log.o $bdir/swap_chain_support.o $root/shaders/blob.h $
     $
     $bdir/v/VVkLayerProperties.o $
     $bdir/v/VVkPresentModeKHR.o $
