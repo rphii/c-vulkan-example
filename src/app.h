@@ -59,6 +59,7 @@ typedef struct App {
     VVkImageView swap_chain_image_views;
     VkRenderPass render_pass;
     VkPipelineLayout pipeline_layout;
+    VkPipeline graphics_pipeline;
 } App;
 
 int app_init(App *app);

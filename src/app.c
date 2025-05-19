@@ -548,7 +548,7 @@ int app_init_vulkan_create_render_pass(App *app) {
         .pSubpasses = &subpass,
     };
     try(vkCreateRenderPass(app->device, &render_pass_info, 0, &app->render_pass));
-    log_down(&app->log, "created render pass");
+    log_ok(&app->log, "created render pass");
     log_up(&app->log);
     return 0;
 error:
@@ -560,6 +560,7 @@ error:
 
 int app_init_vulkan_create_graphics_pipeline(App *app) {
     assert_arg(app);
+    int err = 0;
     log_down(&app->log, "create graphics pipeline");
     log_info(&app->log, "create shader modules");
     VkShaderModule vert_shader_module, frag_shader_module;
@@ -672,15 +673,34 @@ int app_init_vulkan_create_graphics_pipeline(App *app) {
         .pPushConstantRanges = 0,
     };
     try(vkCreatePipelineLayout(app->device, &pipeline_layout_info, 0, &app->pipeline_layout));
-
+    VkGraphicsPipelineCreateInfo pipeline_info = {
+        .sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
+        .stageCount = 2,
+        .pStages = shader_stages,
+        .pVertexInputState = &vertex_input_info,
+        .pInputAssemblyState = &input_assembly,
+        .pViewportState = &viewport_state,
+        .pRasterizationState = &rasterizer,
+        .pMultisampleState = &multisampling,
+        .pDepthStencilState = 0, // optional
+        .pColorBlendState = &color_blending,
+        .pDynamicState = &dynamic_state,
+        .layout = app->pipeline_layout,
+        .renderPass = app->render_pass,
+        .subpass = 0,
+        .basePipelineHandle = VK_NULL_HANDLE, // optional
+        .basePipelineIndex = -1, // optional
+    };
+    try(vkCreateGraphicsPipelines(app->device, VK_NULL_HANDLE, 1, &pipeline_info, 0, &app->graphics_pipeline));
+    log_ok(&app->log, "created graphics pipeline");
+clean:
     vkDestroyShaderModule(app->device, vert_shader_module, 0);
     vkDestroyShaderModule(app->device, frag_shader_module, 0);
-    log_ok(&app->log, "created graphics pipeline");
     log_up(&app->log);
-    return 0;
+    return err;
 error:
-    log_up(&app->log);
-    return -1;
+    err = -1;
+    goto clean;
 }
 
 int app_init_vulkan(App *app) { /*{{{*/
@@ -718,6 +738,10 @@ error:
 int app_free(App *app) { /*{{{*/
     assert_arg(app);
     log_down(&app->log, "clean up");
+    if(app->graphics_pipeline) {
+        log_info(&app->log, "destroy graphics pipeline");
+        vkDestroyPipeline(app->device, app->graphics_pipeline, 0);
+    }
     if(app->pipeline_layout) {
         log_info(&app->log, "destroy pipeline layout");
         vkDestroyPipelineLayout(app->device, app->pipeline_layout, 0);
