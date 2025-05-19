@@ -9,4 +9,9 @@ triangle](https://vulkan-tutorial.com/Drawing_a_triangle/Setup/Base_code).
 
 Futher chapters are not (yet) implemented.
 
+**Dependencies**
+- glfw
+- vulkan
+- [rphiic](https://github.com/rphii/rphiic)
+
 
