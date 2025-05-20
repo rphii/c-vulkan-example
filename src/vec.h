@@ -27,6 +27,7 @@
 #define vec_at(vec, index)          *(typeof(vec))_vec_addr(vec VEC_DEBUG_INFO, sizeof(*vec), index)
 #define vec_len(vec)                _vec_len(vec)
 #define vec_cap(vec)                _vec_cap(vec)
+#define vec_clear(vec)              _vec_clear(vec)
 #define vec_free(vec)               _vec_free(&vec)
 
 /*}}}*/
@@ -37,9 +38,10 @@ void _vec_grow(void *vec VEC_DEBUG_DEFS, size_t size, size_t capacity);
 void _vec_resize(void *vec VEC_DEBUG_DEFS, size_t size, size_t length);
 void *_vec_push(void *vec VEC_DEBUG_DEFS, size_t size);
 void *_vec_pop(void *vec VEC_DEBUG_DEFS, size_t size);
-void *_vec_addr(void *vec VEC_DEBUG_DEFS, size_t size, size_t index);
-size_t _vec_len(void *vec);
-size_t _vec_cap(void *vec);
+void *_vec_addr(const void *vec VEC_DEBUG_DEFS, size_t size, size_t index);
+size_t _vec_len(const void *vec);
+size_t _vec_cap(const void *vec);
+void _vec_clear(void *vec);
 void _vec_free(void *vec);
 
 /*}}}*/
