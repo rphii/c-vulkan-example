@@ -175,7 +175,6 @@ error:
 int app_init_vulkan_setup_debug_messenger(App *app) { /*{{{*/
     assert_arg(app);
     if(!app->validation.enable) return 0;
-    vec_push(app->validation.layers, "VK_LAYER_KHRONOS_validation");
     log_down(&app->log, "set up debug messenger");
     VkDebugUtilsMessengerCreateInfoEXT create_info = {0};
     populate_debug_messenger_create_info(&create_info);
@@ -884,6 +883,9 @@ error:
 int app_init_vulkan(App *app) { /*{{{*/
     assert_arg(app);
     log_down(&app->log, "initialize vulkan");
+    if(app->validation.enable) {
+        vec_push(app->validation.layers, "VK_LAYER_KHRONOS_validation");
+    }
     try(app_init_vulkan_create_instance(app));
     try(app_init_vulkan_setup_debug_messenger(app));
     try(app_init_vulkan_create_surface(app));
