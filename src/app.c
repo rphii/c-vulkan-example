@@ -1,5 +1,6 @@
 #include "app.h"
 #include "util.h"
+#include "vec.h"
 #include <rphii/colorprint.h>
 
 VEC_IMPLEMENT(VCs, vcs, const char *, BY_VAL, BASE, 0);
@@ -42,7 +43,7 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
     }
 }
 
-int app_init_window(App *app) { /*{{{*/
+int app_init_glfw(App *app) { /*{{{*/
     assert_arg(app);
     log_down(&app->log, "initialize glfw");
     glfwInit();
@@ -61,14 +62,14 @@ bool app_init_check_validation_support(App *app) { /*{{{*/
     log_down(&app->log, "check validation layer support");
     uint32_t layer_count;
     vkEnumerateInstanceLayerProperties(&layer_count, 0);
-    VVkLayerProperties available_layers = {0};
-    try(vVkLayerProperties_resize(&available_layers, layer_count));
-    vkEnumerateInstanceLayerProperties(&layer_count, available_layers.items);
+    VkLayerProperties *available_layers = {0};
+    vec_resize(available_layers, layer_count);
+    vkEnumerateInstanceLayerProperties(&layer_count, available_layers);
     for(size_t j = 0; j < rvcs_length(app->validation.layers); ++j) {
         const char *layer_name = rvcs_get_at(&app->validation.layers, j);
         bool layer_found = false;
-        for(size_t i = 0; i < vVkLayerProperties_length(available_layers); ++i) {
-            VkLayerProperties layer_props = vVkLayerProperties_get_at(&available_layers, i);
+        for(size_t i = 0; i < vec_len(available_layers); ++i) {
+            VkLayerProperties layer_props = vec_at(available_layers, i);
             if(strcmp(layer_name, layer_props.layerName)) continue;
             layer_found = true;
             break;
@@ -76,14 +77,10 @@ bool app_init_check_validation_support(App *app) { /*{{{*/
         if(!layer_found) return false;
         log_info(&app->log, "found %s", layer_name);
     }
-    vVkLayerProperties_free(&available_layers);
+    vec_free(available_layers);
     log_ok(&app->log, "validataion layer supported");
     log_up(&app->log);
     return true;
-error:
-    vVkLayerProperties_free(&available_layers);
-    log_up(&app->log);
-    return false;
 } /*}}}*/
 
 int get_required_extensions(App *app, VCs *required_extensions) { /*{{{*/
@@ -214,10 +211,10 @@ int app_init_vulkan_refresh_physical_devices(App *app) { /*{{{*/
     if(!device_count) {
         THROW("failed to find GPUs with vulkan support!");
     }
-    try(vVkPhysicalDevice_resize(&app->physical.available, device_count));
-    vkEnumeratePhysicalDevices(app->instance, &device_count, vVkPhysicalDevice_iter_begin(app->physical.available));
-    for(size_t i = 0; i < vVkPhysicalDevice_length(app->physical.available); ++i) {
-        VkPhysicalDevice device = vVkPhysicalDevice_get_at(&app->physical.available, i);
+    vec_resize(app->physical.available, device_count);
+    vkEnumeratePhysicalDevices(app->instance, &device_count, app->physical.available);
+    for(size_t i = 0; i < vec_len(app->physical.available); ++i) {
+        VkPhysicalDevice device = vec_at(app->physical.available, i);
         VkPhysicalDeviceProperties device_properties;
         vkGetPhysicalDeviceProperties(device, &device_properties);
         VkPhysicalDeviceFeatures device_features;
@@ -233,16 +230,15 @@ error:
     return -1;
 } /*}}}*/
 
-int find_queue_families(VkPhysicalDevice device, VkSurfaceKHR surface, QueueFamilyIndices *indices) { /*{{{*/
+void find_queue_families(VkPhysicalDevice device, VkSurfaceKHR surface, QueueFamilyIndices *indices) { /*{{{*/
     assert_arg(indices);
-    int err = 0;
     uint32_t queue_family_count = 0;
     vkGetPhysicalDeviceQueueFamilyProperties(device, &queue_family_count, 0);
-    VVkQueueFamilyProperties queue_families = {0};
-    try(vVkQueueFamilyProperties_resize(&queue_families, queue_family_count));
-    vkGetPhysicalDeviceQueueFamilyProperties(device, &queue_family_count, queue_families.items);
-    for(size_t i = 0; i < vVkQueueFamilyProperties_length(queue_families); ++i) {
-        VkQueueFamilyProperties queue_family = vVkQueueFamilyProperties_get_at(&queue_families, i);
+    VkQueueFamilyProperties *queue_families = {0};
+    vec_resize(queue_families, queue_family_count);
+    vkGetPhysicalDeviceQueueFamilyProperties(device, &queue_family_count, queue_families);
+    for(size_t i = 0; i < vec_len(queue_families); ++i) {
+        VkQueueFamilyProperties queue_family = vec_at(queue_families, i);
         if(queue_family.queueFlags & VK_QUEUE_GRAPHICS_BIT) {
             optional_u32_set(&indices->graphics_family, i);
         }
@@ -252,27 +248,21 @@ int find_queue_families(VkPhysicalDevice device, VkSurfaceKHR surface, QueueFami
             optional_u32_set(&indices->present_family, i);
         }
     }
-clean:
-    vVkQueueFamilyProperties_free(&queue_families);
-    return err;
-error:
-    queue_family_indices_clear(indices);
-    err = -1;
-    goto clean;
+    vec_free(queue_families);
 } /*}}}*/
 
 bool check_device_extension_support(VkPhysicalDevice device, RVCs device_extensions) { /*{{{*/
     uint32_t extension_count;
     vkEnumerateDeviceExtensionProperties(device, 0, &extension_count, 0);
-    VVkExtensionProperties extension_properties = {0};
+    VkExtensionProperties *extension_properties = {0};
     bool found = false;
-    try(vVkExtensionProperties_resize(&extension_properties, extension_count));
-    vkEnumerateDeviceExtensionProperties(device, 0, &extension_count, vVkExtensionProperties_iter_begin(extension_properties));
+    vec_resize(extension_properties, extension_count);
+    vkEnumerateDeviceExtensionProperties(device, 0, &extension_count, extension_properties);
     for(size_t j = 0; j < rvcs_length(device_extensions); ++j) {
         const char *required = rvcs_get_at(&device_extensions, j);
         found = false;
-        for(size_t i = 0; i < vVkExtensionProperties_length(extension_properties); ++i) {
-            VkExtensionProperties extension = vVkExtensionProperties_get_at(&extension_properties, i);
+        for(size_t i = 0; i < vec_len(extension_properties); ++i) {
+            VkExtensionProperties extension = vec_at(extension_properties, i);
             if(strcmp(extension.extensionName, required)) continue;
             found = true;
             break;
@@ -280,23 +270,20 @@ bool check_device_extension_support(VkPhysicalDevice device, RVCs device_extensi
         if(!found) goto clean;
     }
 clean:
-    vVkExtensionProperties_free(&extension_properties);
+    vec_free(extension_properties);
     return found;
-error:
-    found = false;
-    goto clean;
 } /*}}}*/
 
 bool is_device_suitable(VkPhysicalDevice device, VkSurfaceKHR surface, QueueFamilyIndices *indices, RVCs device_extensions) { /*{{{*/
     bool extensions_supported = false;
     bool swap_chain_adequate = false;
     SwapChainSupportDetails swap_chain_support = {0};
-    try(find_queue_families(device, surface, indices));
+    find_queue_families(device, surface, indices);
     extensions_supported = check_device_extension_support(device, device_extensions);
     if(extensions_supported) {
         try(swap_chain_support_query(device, surface, &swap_chain_support));
-        swap_chain_adequate = vVkSurfaceFormatKHR_length(swap_chain_support.formats) && 
-            vVkPresentModeKHR_length(swap_chain_support.present_modes);
+        swap_chain_adequate = vec_len(swap_chain_support.formats) && 
+            vec_len(swap_chain_support.present_modes);
     }
 clean:
     swap_chain_support_free(&swap_chain_support);
@@ -309,8 +296,8 @@ int app_init_vulkan_pick_physical_device(App *app) { /*{{{*/
     assert_arg(app);
     log_down(&app->log, "pick physical device");
     try(app_init_vulkan_refresh_physical_devices(app));
-    for(size_t i = 0; i < vVkPhysicalDevice_length(app->physical.available); ++i) {
-        VkPhysicalDevice device = vVkPhysicalDevice_get_at(&app->physical.available, i);
+    for(size_t i = 0; i < vec_len(app->physical.available); ++i) {
+        VkPhysicalDevice device = vec_at(app->physical.available, i);
         if(is_device_suitable(device, app->surface, &app->physical.indices, app->device_extensions)) {
             app->physical.active = device; // TODO actually pick a suitable physical device
             log_info(&app->log, "found suitable device");
@@ -333,7 +320,7 @@ int app_init_vulkan_create_logical_device(App *app) { /*{{{*/
     log_down(&app->log, "create logical device");
     int err = 0;
 
-    VVkDeviceQueueCreateInfo queue_create_infos = {0};
+    VkDeviceQueueCreateInfo *queue_create_infos = {0};
     uint32_t queue_families[] = {
         app->physical.indices.graphics_family.value,
         app->physical.indices.present_family.value,
@@ -355,17 +342,18 @@ int app_init_vulkan_create_logical_device(App *app) { /*{{{*/
         queue_create_info.queueFamilyIndex = queue_family;
         queue_create_info.queueCount = 1;
         queue_create_info.pQueuePriorities = &queue_priority;
-        try(vVkDeviceQueueCreateInfo_push_back(&queue_create_infos, queue_create_info));
+        vec_push(queue_create_infos, queue_create_info);
     }
 
     VkPhysicalDeviceFeatures device_features = {0};
-    VkDeviceCreateInfo create_info = {0};
-    create_info.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-    create_info.pQueueCreateInfos = vVkDeviceQueueCreateInfo_iter_begin(queue_create_infos);
-    create_info.queueCreateInfoCount = vVkDeviceQueueCreateInfo_length(queue_create_infos);
-    create_info.pEnabledFeatures = &device_features;
-    create_info.enabledExtensionCount = rvcs_length(app->device_extensions);
-    create_info.ppEnabledExtensionNames = rvcs_iter_begin(app->device_extensions);
+    VkDeviceCreateInfo create_info = {
+        .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
+        .pQueueCreateInfos = queue_create_infos,
+        .queueCreateInfoCount = vec_len(queue_create_infos),
+        .pEnabledFeatures = &device_features,
+        .enabledExtensionCount = rvcs_length(app->device_extensions),
+        .ppEnabledExtensionNames = rvcs_iter_begin(app->device_extensions),
+    };
     if(app->validation.enable) {
         create_info.enabledLayerCount = rvcs_length(app->validation.layers);
         create_info.ppEnabledLayerNames = rvcs_iter_begin(app->validation.layers);
@@ -381,7 +369,7 @@ int app_init_vulkan_create_logical_device(App *app) { /*{{{*/
     log_ok(&app->log, "created logical device");
     log_up(&app->log);
 clean:
-    vVkDeviceQueueCreateInfo_free(&queue_create_infos);
+    vec_free(queue_create_infos);
     return err;
 error:
     log_up(&app->log);
@@ -389,22 +377,22 @@ error:
     goto clean;
 } /*}}}*/
 
-VkSurfaceFormatKHR choose_swap_surface_format(VVkSurfaceFormatKHR *available_formats) {
+VkSurfaceFormatKHR choose_swap_surface_format(VkSurfaceFormatKHR **available_formats) {
     assert_arg(available_formats);
-    for(size_t i = 0; i < vVkSurfaceFormatKHR_length(*available_formats); ++i) {
-        VkSurfaceFormatKHR available_format = vVkSurfaceFormatKHR_get_at(available_formats, i);
+    for(size_t i = 0; i < vec_len(*available_formats); ++i) {
+        VkSurfaceFormatKHR available_format = vec_at(*available_formats, i);
         if(available_format.format == VK_FORMAT_B8G8R8A8_SRGB &&
                 available_format.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR) {
             return available_format;
         }
     }
-    return vVkSurfaceFormatKHR_get_front(available_formats);
+    return *(*available_formats);
 }
 
-VkPresentModeKHR choose_swap_present_mode(VVkPresentModeKHR *available_present_modes) {
+VkPresentModeKHR choose_swap_present_mode(VkPresentModeKHR **available_present_modes) {
     assert_arg(available_present_modes);
-    for(size_t i = 0; i < vVkPresentModeKHR_length(*available_present_modes); ++i) {
-        VkPresentModeKHR available_present_mode = vVkPresentModeKHR_get_at(available_present_modes, i);
+    for(size_t i = 0; i < vec_len(*available_present_modes); ++i) {
+        VkPresentModeKHR available_present_mode = vec_at(*available_present_modes, i);
         if(available_present_mode == VK_PRESENT_MODE_MAILBOX_KHR) {
             return available_present_mode;
         }
@@ -477,8 +465,8 @@ int app_init_vulkan_create_swap_chain(App *app) {
     try(vkCreateSwapchainKHR(app->device, &create_info, 0, &app->swap_chain));
     log_info(&app->log, "retrieve swap chain images");
     vkGetSwapchainImagesKHR(app->device, app->swap_chain, &image_count, 0);
-    try(vVkImage_resize(&app->swap_chain_images, image_count));
-    vkGetSwapchainImagesKHR(app->device, app->swap_chain, &image_count, vVkImage_iter_begin(app->swap_chain_images));
+    vec_resize(app->swap_chain_images, image_count);
+    vkGetSwapchainImagesKHR(app->device, app->swap_chain, &image_count, app->swap_chain_images);
     log_ok(&app->log, "created swap chain");
 clean:
     swap_chain_support_free(&swap_chain_support);
@@ -490,14 +478,14 @@ error:
 }
 int app_init_vulkan_create_image_views(App *app) {
     assert_arg(app);
-    log_down(&app->log, "create %zu image views", vVkImage_length(app->swap_chain_images));
-    try(vVkImageView_resize(&app->swap_chain_image_views, vVkImage_length(app->swap_chain_images)));
-    for(size_t i = 0; i < vVkImageView_length(app->swap_chain_image_views); ++i) {
+    log_down(&app->log, "create %zu image views", vec_len(app->swap_chain_images));
+    vec_resize(app->swap_chain_image_views, vec_len(app->swap_chain_images));
+    for(size_t i = 0; i < vec_len(app->swap_chain_image_views); ++i) {
         log_info(&app->log, "create image view #%zu", i);
         VkImageViewCreateInfo create_info = {0};
-        VkImageView *image_view = vVkImageView_iter_at(&app->swap_chain_image_views, i);
+        VkImageView *image_view = &app->swap_chain_image_views[i];
         create_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-        create_info.image = vVkImage_get_at(&app->swap_chain_images, i);
+        create_info.image = vec_at(app->swap_chain_images, i);
         create_info.viewType = VK_IMAGE_VIEW_TYPE_2D;
         create_info.format = app->swap_chain_image_format;
         create_info.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
@@ -728,12 +716,12 @@ error:
 
 int app_init_vulkan_create_framebuffers(App *app) {
     assert_arg(app);
-    log_down(&app->log, "create %zu framebuffer", vVkImageView_length(app->swap_chain_image_views));
-    try(vVkFramebuffer_resize(&app->swap_chain_framebuffers, vVkImageView_length(app->swap_chain_image_views)));
-    for(size_t i = 0; i < vVkImageView_length(app->swap_chain_image_views); ++i) {
+    log_down(&app->log, "create %zu framebuffer", vec_len(app->swap_chain_image_views));
+    vec_resize(app->swap_chain_framebuffers, vec_len(app->swap_chain_image_views));
+    for(size_t i = 0; i < vec_len(app->swap_chain_image_views); ++i) {
         log_info(&app->log, "create framebuffer #%zu", i);
-        VkImageView *image_view = vVkImageView_iter_at(&app->swap_chain_image_views, i);
-        VkFramebuffer *frame_buffer = vVkFramebuffer_iter_at(&app->swap_chain_framebuffers, i);
+        VkImageView *image_view = &app->swap_chain_image_views[i];
+        VkFramebuffer *frame_buffer = &app->swap_chain_framebuffers[i];
         VkImageView attachments[] = {
             *image_view,
         };
@@ -776,14 +764,14 @@ error:
 int app_init_vulkan_create_command_buffers(App *app) {
     assert_arg(app);
     log_down(&app->log, "create command buffer");
-    try(vVkCommandBuffer_resize(&app->command_buffer, APP_MAX_FRAMES_IN_FLIGHT));
+    vec_resize(app->command_buffer, APP_MAX_FRAMES_IN_FLIGHT);
     VkCommandBufferAllocateInfo alloc_info = {
         .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
         .commandPool = app->command_pool,
         .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
         .commandBufferCount = APP_MAX_FRAMES_IN_FLIGHT,
     };
-    try(vkAllocateCommandBuffers(app->device, &alloc_info, vVkCommandBuffer_iter_begin(app->command_buffer)));
+    try(vkAllocateCommandBuffers(app->device, &alloc_info, app->command_buffer));
     log_ok(&app->log, "created command buffer");
     log_up(&app->log);
     return 0;
@@ -792,7 +780,7 @@ error:
     return -1;
 }
 
-int record_command_buffer(VkCommandBuffer command_buffer, VkRenderPass render_pass, VkExtent2D swap_chain_extent, VkPipeline graphics_pipeline, VVkFramebuffer *framebuffers, uint32_t image_index) {
+int record_command_buffer(VkCommandBuffer command_buffer, VkRenderPass render_pass, VkExtent2D swap_chain_extent, VkPipeline graphics_pipeline, VkFramebuffer *framebuffers, uint32_t image_index) {
     VkCommandBufferBeginInfo begin_info = {
         .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
         .flags = 0, // optional
@@ -803,7 +791,7 @@ int record_command_buffer(VkCommandBuffer command_buffer, VkRenderPass render_pa
     VkRenderPassBeginInfo render_pass_info = {
         .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
         .renderPass = render_pass,
-        .framebuffer = vVkFramebuffer_get_at(framebuffers, image_index),
+        .framebuffer = vec_at(framebuffers, image_index),
         .renderArea.offset = {0, 0},
         .renderArea.extent = swap_chain_extent,
         .clearValueCount = 1,
@@ -836,9 +824,9 @@ error:
 int app_init_vulkan_create_sync_objects(App *app) {
     assert_arg(app);
     log_down(&app->log, "create sync objects");
-    try(vVkSemaphore_resize(&app->render_finished_semaphore, APP_MAX_FRAMES_IN_FLIGHT));
-    try(vVkSemaphore_resize(&app->image_available_semaphore, APP_MAX_FRAMES_IN_FLIGHT));
-    try(vVkFence_resize(&app->in_flight_scene, APP_MAX_FRAMES_IN_FLIGHT));
+    vec_resize(app->render_finished_semaphore, APP_MAX_FRAMES_IN_FLIGHT);
+    vec_resize(app->image_available_semaphore, APP_MAX_FRAMES_IN_FLIGHT);
+    vec_resize(app->in_flight_scene, APP_MAX_FRAMES_IN_FLIGHT);
     VkSemaphoreCreateInfo semaphore_info = {
         .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
     };
@@ -847,9 +835,9 @@ int app_init_vulkan_create_sync_objects(App *app) {
         .flags = VK_FENCE_CREATE_SIGNALED_BIT,
     };
     for(size_t i = 0; i < APP_MAX_FRAMES_IN_FLIGHT; ++i) {
-        try(vkCreateSemaphore(app->device, &semaphore_info, 0, vVkSemaphore_iter_at(&app->image_available_semaphore, i)));
-        try(vkCreateSemaphore(app->device, &semaphore_info, 0, vVkSemaphore_iter_at(&app->render_finished_semaphore, i)));
-        try(vkCreateFence(app->device, &fence_info, 0, vVkFence_iter_at(&app->in_flight_scene, i)));
+        try(vkCreateSemaphore(app->device, &semaphore_info, 0, &app->image_available_semaphore[i]));
+        try(vkCreateSemaphore(app->device, &semaphore_info, 0, &app->render_finished_semaphore[i]));
+        try(vkCreateFence(app->device, &fence_info, 0, &app->in_flight_scene[i]));
     }
     log_ok(&app->log, "created sync objects");
     log_up(&app->log);
@@ -861,21 +849,21 @@ error:
 
 void app_free_swap_chain(App *app) {
     assert_arg(app);
-    for(size_t i = 0; i < vVkFramebuffer_length(app->swap_chain_framebuffers); ++i) {
+    for(size_t i = 0; i < vec_len(app->swap_chain_framebuffers); ++i) {
         log_info(&app->log, "destroy frame buffer #%zu", i);
-        VkFramebuffer framebuffer = vVkFramebuffer_get_at(&app->swap_chain_framebuffers, i);
+        VkFramebuffer framebuffer = vec_at(app->swap_chain_framebuffers, i);
         vkDestroyFramebuffer(app->device, framebuffer, 0);
     }
-    for(size_t i = 0; i < vVkImageView_length(app->swap_chain_image_views); ++i) {
+    for(size_t i = 0; i < vec_len(app->swap_chain_image_views); ++i) {
         log_info(&app->log, "destroy image view #%zu", i);
-        VkImageView image_view = vVkImageView_get_at(&app->swap_chain_image_views, i);
+        VkImageView image_view = vec_at(app->swap_chain_image_views, i);
         vkDestroyImageView(app->device, image_view, 0);
     }
     if(app->swap_chain) {
         log_info(&app->log, "destroy swapchain");
         vkDestroySwapchainKHR(app->device, app->swap_chain, 0);
     }
-    vVkFramebuffer_free(&app->swap_chain_framebuffers);
+    vec_free(app->swap_chain_framebuffers);
 }
 
 int app_init_vulkan_recreate_swap_chain(App *app) {
@@ -926,7 +914,7 @@ int app_init(App *app) { /*{{{*/
     assert_arg(app->name);
     assert_arg(app->engine);
     log_start(&app->log);
-    try(app_init_window(app));
+    try(app_init_glfw(app));
     try(app_init_vulkan(app));
     log_output(&app->log, false);
     return 0;
@@ -942,17 +930,17 @@ void app_free(App *app) { /*{{{*/
     assert_arg(app);
     log_down(&app->log, "clean up");
     app_free_swap_chain(app);
-    for(size_t i = 0; i < vVkSemaphore_length(app->image_available_semaphore); ++i) {
+    for(size_t i = 0; i < vec_len(app->image_available_semaphore); ++i) {
         log_info(&app->log, "destroy a semaphore available");
-        vkDestroySemaphore(app->device, vVkSemaphore_get_at(&app->image_available_semaphore, i), 0);
+        vkDestroySemaphore(app->device, vec_at(app->image_available_semaphore, i), 0);
     }
-    for(size_t i = 0; i < vVkSemaphore_length(app->render_finished_semaphore); ++i) {
+    for(size_t i = 0; i < vec_len(app->render_finished_semaphore); ++i) {
         log_info(&app->log, "destroy a semaphore render");
-        vkDestroySemaphore(app->device, vVkSemaphore_get_at(&app->render_finished_semaphore, i), 0);
+        vkDestroySemaphore(app->device, vec_at(app->render_finished_semaphore, i), 0);
     }
-    for(size_t i = 0; i < vVkFence_length(app->in_flight_scene); ++i) {
+    for(size_t i = 0; i < vec_len(app->in_flight_scene); ++i) {
         log_info(&app->log, "destroy a fence");
-        vkDestroyFence(app->device, vVkFence_get_at(&app->in_flight_scene, i), 0);
+        vkDestroyFence(app->device, vec_at(app->in_flight_scene, i), 0);
     }
     if(app->command_pool) {
         log_info(&app->log, "destroy command pool");
@@ -988,13 +976,13 @@ void app_free(App *app) { /*{{{*/
     }
     glfwDestroyWindow(app->window);
     glfwTerminate();
-    vVkPhysicalDevice_free(&app->physical.available);
-    vVkImage_free(&app->swap_chain_images);
-    vVkImageView_free(&app->swap_chain_image_views);
-    vVkCommandBuffer_free(&app->command_buffer);
-    vVkSemaphore_free(&app->render_finished_semaphore);
-    vVkSemaphore_free(&app->image_available_semaphore);
-    vVkFence_free(&app->in_flight_scene);
+    vec_free(app->physical.available);
+    vec_free(app->swap_chain_images);
+    vec_free(app->swap_chain_image_views);
+    vec_free(app->command_buffer);
+    vec_free(app->render_finished_semaphore);
+    vec_free(app->image_available_semaphore);
+    vec_free(app->in_flight_scene);
     vcs_free(&app->required_extensions);
     log_ok(&app->log, "cleaned up");
     log_up(&app->log);
@@ -1002,12 +990,12 @@ void app_free(App *app) { /*{{{*/
 
 int app_render(App *app) {
     assert_arg(app);
-    VkFence *in_flight_scene = vVkFence_iter_at(&app->in_flight_scene, app->current_frame);
+    VkFence *in_flight_scene = &app->in_flight_scene[app->current_frame];
     vkWaitForFences(app->device, 1, in_flight_scene, VK_TRUE, UINT64_MAX);
 
-    VkSemaphore *image_available_semaphore = vVkSemaphore_iter_at(&app->image_available_semaphore, app->current_frame);
-    VkSemaphore *render_finished_semaphore = vVkSemaphore_iter_at(&app->image_available_semaphore, app->current_frame);
-    VkCommandBuffer *command_buffer = vVkCommandBuffer_iter_at(&app->command_buffer, app->current_frame);
+    VkSemaphore *image_available_semaphore = &app->image_available_semaphore[app->current_frame];
+    VkSemaphore *render_finished_semaphore = &app->image_available_semaphore[app->current_frame];
+    VkCommandBuffer *command_buffer = &app->command_buffer[app->current_frame];
 
     uint32_t image_index;
     VkResult result = vkAcquireNextImageKHR(app->device, app->swap_chain, UINT64_MAX, *image_available_semaphore, VK_NULL_HANDLE, &image_index);
@@ -1019,7 +1007,7 @@ int app_render(App *app) {
     }
     vkResetFences(app->device, 1, in_flight_scene);
     vkResetCommandBuffer(*command_buffer, 0);
-    try(record_command_buffer(*command_buffer, app->render_pass, app->swap_chain_extent, app->graphics_pipeline, &app->swap_chain_framebuffers, image_index));
+    try(record_command_buffer(*command_buffer, app->render_pass, app->swap_chain_extent, app->graphics_pipeline, app->swap_chain_framebuffers, image_index));
     VkSemaphore wait_semaphores[] = {
         *image_available_semaphore,
     };

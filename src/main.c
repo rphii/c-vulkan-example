@@ -23,9 +23,18 @@ int main() {
 
     try(app_init(&app));
 #if 1
+    double t0 = glfwGetTime();
+    size_t frames = 0;
     while(!glfwWindowShouldClose(app.window)) {
         glfwPollEvents();
         try(app_render(&app));
+        ++frames;
+        double tX = glfwGetTime();
+        if(tX - t0 > 2.0) {
+            printf("%9.1f fps\n", (double)frames/(tX-t0));
+            frames = 0;
+            t0 = tX;
+        }
     }
 #endif
 
