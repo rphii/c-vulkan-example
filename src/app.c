@@ -3,8 +3,10 @@
 #include "vec.h"
 #include <rphii/colorprint.h>
 
+#if 0
 VEC_IMPLEMENT(VCs, vcs, const char *, BY_VAL, BASE, 0);
 VEC_IMPLEMENT(VCs, vcs, const char *, BY_VAL, ERR);
+#endif
 
 #include <cglm/cglm.h>
 
@@ -65,8 +67,8 @@ bool app_init_check_validation_support(App *app) { /*{{{*/
     VkLayerProperties *available_layers = {0};
     vec_resize(available_layers, layer_count);
     vkEnumerateInstanceLayerProperties(&layer_count, available_layers);
-    for(size_t j = 0; j < rvcs_length(app->validation.layers); ++j) {
-        const char *layer_name = rvcs_get_at(&app->validation.layers, j);
+    for(size_t j = 0; j < vec_len(app->validation.layers); ++j) {
+        const char *layer_name = vec_at(app->validation.layers, j);
         bool layer_found = false;
         for(size_t i = 0; i < vec_len(available_layers); ++i) {
             VkLayerProperties layer_props = vec_at(available_layers, i);
@@ -83,30 +85,26 @@ bool app_init_check_validation_support(App *app) { /*{{{*/
     return true;
 } /*}}}*/
 
-int get_required_extensions(App *app, VCs *required_extensions) { /*{{{*/
+void get_required_extensions(App *app, const char ***required_extensions) { /*{{{*/
     assert_arg(app);
     assert_arg(required_extensions);
     log_down(&app->log, "get required extensions");
-    vcs_clear(required_extensions);
+    vec_clear(*required_extensions);
     uint32_t glfw_extension_count = 0;
-    const char **glfw_extensions = glfwGetRequiredInstanceExtensions(&glfw_extension_count);
+    char **glfw_extensions = (char **)glfwGetRequiredInstanceExtensions(&glfw_extension_count);
     for(size_t i = 0; i < glfw_extension_count; ++i) {
         log_info(&app->log, "require %s", glfw_extensions[i]);
-        try(vcs_push_back(required_extensions, glfw_extensions[i]));
+        vec_push(*required_extensions, glfw_extensions[i]);
     }
     if(app->validation.enable) {
         log_info(&app->log, "require %s", VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
-        try(vcs_push_back(required_extensions, VK_EXT_DEBUG_UTILS_EXTENSION_NAME));
+        vec_push(*required_extensions, VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
     }
     // macOS
     log_info(&app->log, "require %s", VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME);
-    try(vcs_push_back(required_extensions, VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME));
+    vec_push(*required_extensions, VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME);
     log_ok(&app->log, "got required extensions");
     log_up(&app->log);
-    return 0;
-error:
-    log_up(&app->log);
-    return -1;
 } /*}}}*/
 
 int app_init_vulkan_create_instance(App *app) { /*{{{*/
@@ -116,7 +114,7 @@ int app_init_vulkan_create_instance(App *app) { /*{{{*/
     if(app->validation.enable && !app_init_check_validation_support(app)) {
         THROW("validation layers requested, but not available!");
     }
-    try(get_required_extensions(app, &app->required_extensions));
+    get_required_extensions(app, &app->required_extensions);
 
     log_info(&app->log, "set app info");
     VkApplicationInfo app_info = {0};
@@ -133,13 +131,13 @@ int app_init_vulkan_create_instance(App *app) { /*{{{*/
     create_info.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
     create_info.flags |= VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR;
     create_info.pApplicationInfo = &app_info;
-    create_info.enabledExtensionCount = vcs_length(app->required_extensions);
-    create_info.ppEnabledExtensionNames = vcs_iter_begin(app->required_extensions);
+    create_info.enabledExtensionCount = vec_len(app->required_extensions);
+    create_info.ppEnabledExtensionNames = app->required_extensions;
     if(app->validation.enable) {
         populate_debug_messenger_create_info(&debug_create_info);
-        log_info(&app->log, "enable %zu validation layers", rvcs_length(app->validation.layers));
-        create_info.enabledLayerCount = rvcs_length(app->validation.layers);
-        create_info.ppEnabledLayerNames = rvcs_iter_begin(app->validation.layers);
+        log_info(&app->log, "enable %zu validation layers", vec_len(app->validation.layers));
+        create_info.enabledLayerCount = vec_len(app->validation.layers);
+        create_info.ppEnabledLayerNames = app->validation.layers;
         create_info.pNext = (VkDebugUtilsMessengerCreateInfoEXT *)&debug_create_info;
     } else {
         create_info.enabledLayerCount = 0;
@@ -177,6 +175,7 @@ error:
 int app_init_vulkan_setup_debug_messenger(App *app) { /*{{{*/
     assert_arg(app);
     if(!app->validation.enable) return 0;
+    vec_push(app->validation.layers, "VK_LAYER_KHRONOS_validation");
     log_down(&app->log, "set up debug messenger");
     VkDebugUtilsMessengerCreateInfoEXT create_info = {0};
     populate_debug_messenger_create_info(&create_info);
@@ -251,15 +250,15 @@ void find_queue_families(VkPhysicalDevice device, VkSurfaceKHR surface, QueueFam
     vec_free(queue_families);
 } /*}}}*/
 
-bool check_device_extension_support(VkPhysicalDevice device, RVCs device_extensions) { /*{{{*/
+bool check_device_extension_support(VkPhysicalDevice device, const char **device_extensions) { /*{{{*/
     uint32_t extension_count;
     vkEnumerateDeviceExtensionProperties(device, 0, &extension_count, 0);
     VkExtensionProperties *extension_properties = {0};
     bool found = false;
     vec_resize(extension_properties, extension_count);
     vkEnumerateDeviceExtensionProperties(device, 0, &extension_count, extension_properties);
-    for(size_t j = 0; j < rvcs_length(device_extensions); ++j) {
-        const char *required = rvcs_get_at(&device_extensions, j);
+    for(size_t j = 0; j < vec_len(device_extensions); ++j) {
+        const char *required = vec_at(device_extensions, j);
         found = false;
         for(size_t i = 0; i < vec_len(extension_properties); ++i) {
             VkExtensionProperties extension = vec_at(extension_properties, i);
@@ -274,22 +273,19 @@ clean:
     return found;
 } /*}}}*/
 
-bool is_device_suitable(VkPhysicalDevice device, VkSurfaceKHR surface, QueueFamilyIndices *indices, RVCs device_extensions) { /*{{{*/
+bool is_device_suitable(VkPhysicalDevice device, VkSurfaceKHR surface, QueueFamilyIndices *indices, const char **device_extensions) { /*{{{*/
     bool extensions_supported = false;
     bool swap_chain_adequate = false;
     SwapChainSupportDetails swap_chain_support = {0};
     find_queue_families(device, surface, indices);
     extensions_supported = check_device_extension_support(device, device_extensions);
     if(extensions_supported) {
-        try(swap_chain_support_query(device, surface, &swap_chain_support));
+        swap_chain_support_query(device, surface, &swap_chain_support);
         swap_chain_adequate = vec_len(swap_chain_support.formats) && 
             vec_len(swap_chain_support.present_modes);
     }
-clean:
     swap_chain_support_free(&swap_chain_support);
     return queue_family_indices_is_complete(indices) && extensions_supported && swap_chain_adequate;
-error:
-    goto clean;
 } /*}}}*/
 
 int app_init_vulkan_pick_physical_device(App *app) { /*{{{*/
@@ -351,12 +347,12 @@ int app_init_vulkan_create_logical_device(App *app) { /*{{{*/
         .pQueueCreateInfos = queue_create_infos,
         .queueCreateInfoCount = vec_len(queue_create_infos),
         .pEnabledFeatures = &device_features,
-        .enabledExtensionCount = rvcs_length(app->device_extensions),
-        .ppEnabledExtensionNames = rvcs_iter_begin(app->device_extensions),
+        .enabledExtensionCount = vec_len(app->device_extensions),
+        .ppEnabledExtensionNames = app->device_extensions,
     };
     if(app->validation.enable) {
-        create_info.enabledLayerCount = rvcs_length(app->validation.layers);
-        create_info.ppEnabledLayerNames = rvcs_iter_begin(app->validation.layers);
+        create_info.enabledLayerCount = vec_len(app->validation.layers);
+        create_info.ppEnabledLayerNames = app->validation.layers;
     } else {
         create_info.enabledLayerCount = 0;
     }
@@ -424,7 +420,7 @@ int app_init_vulkan_create_swap_chain(App *app) {
     log_down(&app->log, "create swap chain");
     int err = 0;
     SwapChainSupportDetails swap_chain_support = {0};
-    try(swap_chain_support_query(app->physical.active, app->surface, &swap_chain_support));
+    swap_chain_support_query(app->physical.active, app->surface, &swap_chain_support);
     VkSurfaceFormatKHR surface_format = choose_swap_surface_format(&swap_chain_support.formats);
     VkPresentModeKHR present_mode = choose_swap_present_mode(&swap_chain_support.present_modes);
     VkExtent2D extent = choose_swap_extent(app->window, &swap_chain_support.capabilities);
@@ -913,6 +909,7 @@ int app_init(App *app) { /*{{{*/
     assert_arg(app);
     assert_arg(app->name);
     assert_arg(app->engine);
+    vec_push(app->device_extensions, VK_KHR_SWAPCHAIN_EXTENSION_NAME);
     log_start(&app->log);
     try(app_init_glfw(app));
     try(app_init_vulkan(app));
@@ -983,7 +980,9 @@ void app_free(App *app) { /*{{{*/
     vec_free(app->render_finished_semaphore);
     vec_free(app->image_available_semaphore);
     vec_free(app->in_flight_scene);
-    vcs_free(&app->required_extensions);
+    vec_free(app->required_extensions);
+    vec_free(app->validation.layers);
+    vec_free(app->device_extensions);
     log_ok(&app->log, "cleaned up");
     log_up(&app->log);
 } /*}}}*/

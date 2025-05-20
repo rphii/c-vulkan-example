@@ -8,6 +8,7 @@
 #include <GLFW/glfw3.h>
 #include <rphii/vec.h>
 
+#if 0
 VEC_INCLUDE(VCs, vcs, const char *, BY_VAL, BASE);
 VEC_INCLUDE(VCs, vcs, const char *, BY_VAL, ERR);
 #define VCS(...)    (VCs){ \
@@ -18,6 +19,7 @@ VEC_INCLUDE(VCs, vcs, const char *, BY_VAL, ERR);
         .items = (const char *[]){__VA_ARGS__},\
         .last = sizeof((const char *[]){__VA_ARGS__})/sizeof(*(const char *[]){__VA_ARGS__}), \
     }
+#endif
 
 #include "swap_chain_support.h"
 #include "queue_family.h"
@@ -28,10 +30,10 @@ typedef struct App {
     const char *engine; // engine name
     Log log;
     GLFWwindow *window;
-    VCs required_extensions;
-    const RVCs device_extensions;
+    char const **required_extensions;
+    char const **device_extensions;
     struct {
-        const RVCs layers;
+        char const **layers;
         bool enable;
         VkDebugUtilsMessengerEXT messenger;
     } validation;
