@@ -19,18 +19,6 @@ VEC_INCLUDE(VCs, vcs, const char *, BY_VAL, ERR);
         .last = sizeof((const char *[]){__VA_ARGS__})/sizeof(*(const char *[]){__VA_ARGS__}), \
     }
 
-#include "v/VVkLayerProperties.h"
-#include "v/VVkPhysicalDevice.h"
-#include "v/VVkQueueFamilyProperties.h"
-#include "v/VVkDeviceQueueCreateInfo.h"
-#include "v/VVkExtensionProperties.h"
-#include "v/VVkImage.h"
-#include "v/VVkImageView.h"
-#include "v/VVkFramebuffer.h"
-#include "v/VVkCommandBuffer.h"
-#include "v/VVkSemaphore.h"
-#include "v/VVkFence.h"
-
 #include "swap_chain_support.h"
 #include "queue_family.h"
 #include "log.h"
@@ -51,26 +39,26 @@ typedef struct App {
     struct {
         QueueFamilyIndices indices;
         VkPhysicalDevice active;
-        VVkPhysicalDevice available;
+        VkPhysicalDevice *available;
     } physical;
     VkDevice device;
     VkQueue graphics_queue;
     VkSurfaceKHR surface;
     VkQueue present_queue;
     VkSwapchainKHR swap_chain;
-    VVkImage swap_chain_images;
+    VkImage *swap_chain_images;
     VkFormat swap_chain_image_format;
     VkExtent2D swap_chain_extent;
-    VVkImageView swap_chain_image_views;
+    VkImageView *swap_chain_image_views;
     VkRenderPass render_pass;
     VkPipelineLayout pipeline_layout;
     VkPipeline graphics_pipeline;
-    VVkFramebuffer swap_chain_framebuffers;
+    VkFramebuffer *swap_chain_framebuffers;
     VkCommandPool command_pool;
-    VVkCommandBuffer command_buffer;
-    VVkSemaphore image_available_semaphore;
-    VVkSemaphore render_finished_semaphore;
-    VVkFence in_flight_scene;
+    VkCommandBuffer *command_buffer;
+    VkSemaphore *image_available_semaphore;
+    VkSemaphore *render_finished_semaphore;
+    VkFence *in_flight_scene;
     uint32_t current_frame;
     bool framebuffer_resized;
 } App;

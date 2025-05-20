@@ -1,12 +1,12 @@
 #ifndef SWAP_CHAIN_SUPPORT_DETAILS
 
-#include "v/VVkSurfaceFormatKHR.h"
-#include "v/VVkPresentModeKHR.h"
+#include <vulkan/vulkan.h>
+#include "vec.h"
 
 typedef struct SwapChainSupportDetails {
     VkSurfaceCapabilitiesKHR capabilities;
-    VVkSurfaceFormatKHR formats;
-    VVkPresentModeKHR present_modes;
+    VkSurfaceFormatKHR *formats;
+    VkPresentModeKHR *present_modes;
 } SwapChainSupportDetails;
 
 int swap_chain_support_query(VkPhysicalDevice device, VkSurfaceKHR surface, SwapChainSupportDetails *details);

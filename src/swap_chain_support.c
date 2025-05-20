@@ -1,3 +1,4 @@
+#include <string.h>
 #include "swap_chain_support.h"
 #include "util.h"
 
@@ -10,15 +11,15 @@ int swap_chain_support_query(VkPhysicalDevice device, VkSurfaceKHR surface, Swap
     uint32_t format_count;
     vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface, &format_count, 0);
     if(format_count) {
-        try(vVkSurfaceFormatKHR_resize(&details->formats, format_count));
-        vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface, &format_count, vVkSurfaceFormatKHR_iter_begin(details->formats));
+        vec_resize(details->formats, format_count);
+        vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface, &format_count, details->formats);
     }
 
     uint32_t present_mode_count;
     vkGetPhysicalDeviceSurfacePresentModesKHR(device, surface, &present_mode_count, 0);
     if(present_mode_count) {
-        try(vVkPresentModeKHR_resize(&details->present_modes, present_mode_count));
-        vkGetPhysicalDeviceSurfacePresentModesKHR(device, surface, &present_mode_count, vVkPresentModeKHR_iter_begin(details->present_modes));
+        vec_resize(details->present_modes, present_mode_count);
+        vkGetPhysicalDeviceSurfacePresentModesKHR(device, surface, &present_mode_count, details->present_modes);
     }
 
     return 0;
@@ -28,8 +29,8 @@ error:
 
 void swap_chain_support_free(SwapChainSupportDetails *details) {
     assert_arg(details);
-    vVkPresentModeKHR_free(&details->present_modes);
-    vVkSurfaceFormatKHR_free(&details->formats);
+    vec_free(details->present_modes);
+    vec_free(details->formats);
     memset(details, 0, sizeof(*details));
 }
 
