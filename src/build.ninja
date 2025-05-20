@@ -2,7 +2,7 @@ root = .
 bdir = build
 
 cc = gcc
-optimize = -O2 -march=native -mfpmath=sse -DNDEBUG
+optimize = -O2 -march=native -mfpmath=sse
 #-flto=auto -ffat-lto-objects -fgraphite-identity 
 #-DNDEBUG
 common = 
