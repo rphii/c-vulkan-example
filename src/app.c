@@ -478,7 +478,7 @@ int app_init_vulkan_create_image_views(App *app) {
     for(size_t i = 0; i < vec_len(app->swap_chain_image_views); ++i) {
         log_info(&app->log, "create image view #%zu", i);
         VkImageViewCreateInfo create_info = {0};
-        VkImageView *image_view = &app->swap_chain_image_views[i];
+        VkImageView *image_view = vec_it(app->swap_chain_image_views, i);
         create_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
         create_info.image = vec_at(app->swap_chain_images, i);
         create_info.viewType = VK_IMAGE_VIEW_TYPE_2D;
@@ -715,8 +715,8 @@ int app_init_vulkan_create_framebuffers(App *app) {
     vec_resize(app->swap_chain_framebuffers, vec_len(app->swap_chain_image_views));
     for(size_t i = 0; i < vec_len(app->swap_chain_image_views); ++i) {
         log_info(&app->log, "create framebuffer #%zu", i);
-        VkImageView *image_view = &app->swap_chain_image_views[i];
-        VkFramebuffer *frame_buffer = &app->swap_chain_framebuffers[i];
+        VkImageView *image_view = vec_it(app->swap_chain_image_views, i);
+        VkFramebuffer *frame_buffer = vec_it(app->swap_chain_framebuffers, i);
         VkImageView attachments[] = {
             *image_view,
         };
@@ -830,9 +830,9 @@ int app_init_vulkan_create_sync_objects(App *app) {
         .flags = VK_FENCE_CREATE_SIGNALED_BIT,
     };
     for(size_t i = 0; i < APP_MAX_FRAMES_IN_FLIGHT; ++i) {
-        try(vkCreateSemaphore(app->device, &semaphore_info, 0, &app->image_available_semaphore[i]));
-        try(vkCreateSemaphore(app->device, &semaphore_info, 0, &app->render_finished_semaphore[i]));
-        try(vkCreateFence(app->device, &fence_info, 0, &app->in_flight_scene[i]));
+        try(vkCreateSemaphore(app->device, &semaphore_info, 0, vec_it(app->image_available_semaphore, i)));
+        try(vkCreateSemaphore(app->device, &semaphore_info, 0, vec_it(app->render_finished_semaphore, i)));
+        try(vkCreateFence(app->device, &fence_info, 0, vec_it(app->in_flight_scene, i)));
     }
     log_ok(&app->log, "created sync objects");
     log_up(&app->log);
@@ -991,12 +991,12 @@ void app_free(App *app) { /*{{{*/
 
 int app_render(App *app) {
     assert_arg(app);
-    VkFence *in_flight_scene = &app->in_flight_scene[app->current_frame];
+    VkFence *in_flight_scene = vec_it(app->in_flight_scene, app->current_frame);
     vkWaitForFences(app->device, 1, in_flight_scene, VK_TRUE, UINT64_MAX);
 
-    VkSemaphore *image_available_semaphore = &app->image_available_semaphore[app->current_frame];
-    VkSemaphore *render_finished_semaphore = &app->image_available_semaphore[app->current_frame];
-    VkCommandBuffer *command_buffer = &app->command_buffer[app->current_frame];
+    VkSemaphore *image_available_semaphore = vec_it(app->image_available_semaphore, app->current_frame);
+    VkSemaphore *render_finished_semaphore = vec_it(app->image_available_semaphore, app->current_frame);
+    VkCommandBuffer *command_buffer = vec_it(app->command_buffer, app->current_frame);
 
     uint32_t image_index;
     VkResult result = vkAcquireNextImageKHR(app->device, app->swap_chain, UINT64_MAX, *image_available_semaphore, VK_NULL_HANDLE, &image_index);
