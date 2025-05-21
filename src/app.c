@@ -569,7 +569,7 @@ int app_init_vulkan_create_graphics_pipeline(App *app) {
     int err = 0;
     log_down(&app->log, "create graphics pipeline");
     log_info(&app->log, "create shader modules");
-    VkShaderModule vert_shader_module, frag_shader_module;
+    VkShaderModule vert_shader_module = 0, frag_shader_module = 0;
     try(create_shader_module(app->device, &vert_shader_module, build_shaders_vert_spv, build_shaders_vert_spv_len));
     try(create_shader_module(app->device, &frag_shader_module, build_shaders_frag_spv, build_shaders_frag_spv_len));
     VkPipelineShaderStageCreateInfo vert_shader_stage_info = {

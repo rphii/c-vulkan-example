@@ -25,6 +25,7 @@
 #define vec_push(vec, item)         (*(typeof(vec))_vec_push(&vec VEC_DEBUG_INFO, sizeof(*vec)) = item)
 #define vec_pop(vec, item)          *(typeof(vec))_vec_pop(vec VEC_DEBUG_INFO, sizeof(*vec))
 #define vec_at(vec, index)          *(typeof(vec))_vec_addr(vec VEC_DEBUG_INFO, sizeof(*vec), index)
+#define vec_it(vec, index)          (typeof(vec))_vec_addr(vec VEC_DEBUG_INFO, sizeof(*vec), index)
 #define vec_len(vec)                _vec_len(vec)
 #define vec_cap(vec)                _vec_cap(vec)
 #define vec_clear(vec)              _vec_clear(vec)
