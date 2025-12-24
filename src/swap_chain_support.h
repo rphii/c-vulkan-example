@@ -1,7 +1,7 @@
 #ifndef SWAP_CHAIN_SUPPORT_DETAILS
 
 #include <vulkan/vulkan.h>
-#include "vec.h"
+#include <rlc/array.h>
 
 typedef struct SwapChainSupportDetails {
     VkSurfaceCapabilitiesKHR capabilities;

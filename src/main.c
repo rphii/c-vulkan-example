@@ -1,6 +1,5 @@
 #include "app.h"
 #include "util.h"
-#include "vec.h"
 
 int main() {
 
