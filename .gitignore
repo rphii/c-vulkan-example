@@ -6,4 +6,5 @@
 src/build
 src/c-vulkan
 *.pyre
+*.out
 

@@ -11,22 +11,22 @@ void swap_chain_support_query(VkPhysicalDevice device, VkSurfaceKHR surface, Swa
     uint32_t format_count;
     vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface, &format_count, 0);
     if(format_count) {
-        vec_resize(details->formats, format_count);
+        array_resize(details->formats, format_count);
         vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface, &format_count, details->formats);
     }
 
     uint32_t present_mode_count;
     vkGetPhysicalDeviceSurfacePresentModesKHR(device, surface, &present_mode_count, 0);
     if(present_mode_count) {
-        vec_resize(details->present_modes, present_mode_count);
+        array_resize(details->present_modes, present_mode_count);
         vkGetPhysicalDeviceSurfacePresentModesKHR(device, surface, &present_mode_count, details->present_modes);
     }
 }
 
 void swap_chain_support_free(SwapChainSupportDetails *details) {
     assert_arg(details);
-    vec_free(details->present_modes);
-    vec_free(details->formats);
+    array_free(details->present_modes);
+    array_free(details->formats);
     memset(details, 0, sizeof(*details));
 }
 

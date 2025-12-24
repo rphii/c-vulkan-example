@@ -1,17 +1,23 @@
 root = .
 bdir = build
 
-cc = gcc
-optimize = -O2 -march=native -mfpmath=sse
-#-flto=auto -ffat-lto-objects -fgraphite-identity 
-#-DNDEBUG
+### cc = gcc
+### optimize = -O2 -march=native -mfpmath=sse -DNDEBUG
+### #-flto=auto -ffat-lto-objects -fgraphite-identity 
+### #-DNDEBUG
+### common = 
+### #-fsanitize=address -ggdb3 -rdynamic
+
+cc = clang
+optimize = -O3 -march=native -pipe -flto=thin -fno-semantic-interposition -ffp-contract=fast -mfpmath=sse -DNDEBUG
 common = 
-#-fsanitize=address -ggdb3 -rdynamic
+
 
 cflags = -Wall -Wextra -Wimplicit -Wfatal-errors $
          -Wno-unused-parameter $
          $optimize $common
-ldflags = -lglfw -lvulkan -lrphiic $common
+ldflags = -lglfw -lvulkan -lrphiic $common $
+          -fuse-ld=mold -rtlib=compiler-rt -flto=thin -unwindlib=libunwind -Wl,-O3  -Wl,--lto-O3 -Wl,--as-needed -Wl,--gc-sections -Wl,--icf=all -Wl,--strip-all -Wl,-z,norelro
 
 rule cc
     command = $cc -MMD -MF $out.d $cflags -c $in -o $out
@@ -41,6 +47,8 @@ build $bdir/swap_chain_support.o: cc $root/swap_chain_support.c
 
 
 build c-vulkan: link $bdir/main.o $bdir/app.o $bdir/queue_family.o $bdir/optional.o $
-    $bdir/log.o $bdir/vec.o $bdir/swap_chain_support.o $root/shaders/blob.h $
+    $bdir/log.o $bdir/vec.o $bdir/swap_chain_support.o $
+
+#$bdir/log.o $bdir/vec.o $bdir/swap_chain_support.o $root/shaders/blob.h $
 
 

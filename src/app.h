@@ -6,7 +6,7 @@
 
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
-#include <rphii/vec.h>
+#include <rlc/vec.h>
 
 #if 0
 VEC_INCLUDE(VCs, vcs, const char *, BY_VAL, BASE);
