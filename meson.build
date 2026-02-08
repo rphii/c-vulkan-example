@@ -16,5 +16,5 @@ rlc_dep = dependency('rlc', fallback : ['rlc', 'rlc_dep'], default_options: ['de
 glfw_dep = dependency('glfw3')
 vulkan_dep = dependency('vulkan')
 
-app = executable('c-vulkan-triangle', sources, dependencies: [rlc_dep, glfw_dep, vulkan_dep])
+app = executable('c-vulkan-triangle', sources, dependencies: [rlc_dep, glfw_dep, vulkan_dep, m_dep])
 
