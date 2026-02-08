@@ -1,4 +1,4 @@
-project('civ', 'c', meson_version: '>=1.1', version: '9999')
+project('c-vulkan-example', 'c', meson_version: '>=1.0', version: '9999')
 
 sources = [
   'src/app.c',
