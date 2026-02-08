@@ -12,6 +12,6 @@ Futher chapters are not (yet) implemented.
 **Dependencies**
 - glfw
 - vulkan
-- [rphiic](https://github.com/rphii/rphiic)
+- [rphii/rlc](https://github.com/rphii/rlc)
 
 
